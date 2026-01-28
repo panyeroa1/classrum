@@ -952,31 +952,79 @@ function removeParticipant(id){
 
 function updateVideoGrid(){
   const grid=$('videoGrid');
+  const teacherTile=$('teacherVideoTile');
+  const teacherNameDisplay=$('teacherNameDisplay');
+  
   if(!grid) return;
 
-  grid.classList.remove('auto-layout');
-  grid.classList.add('pinned-view');
   grid.innerHTML='';
+  
+  // 1. Handle Teacher Sidebar
+  // If we know the teacher ID, try to find them in participants
+  const teacherId = teacherUserId;
+  let teacherFound = false;
 
-  const pinnedId = getPinnedOrTeacherId();
-
-  if(pinnedId && participants.has(pinnedId)){
-    const pinnedP = participants.get(pinnedId);
-    const pinnedTile = createVideoTile(pinnedP, pinnedId);
-    pinnedTile.classList.add('pinned');
-    grid.appendChild(pinnedTile);
+  if(teacherId && participants.has(teacherId)){
+    const p = participants.get(teacherId);
+    // Update name
+    if(teacherNameDisplay) teacherNameDisplay.textContent = p.name || 'Instructor';
+    
+    // Create or move video
+    // We'll reset the tile content to just the placeholder first, then append video if enabled
+    if(teacherTile){
+      // Clear previous video elements but keep structure if needed, or just rebuild
+      // Let's rebuild the content of teacherTile to ensure it has the video
+      teacherTile.innerHTML = '';
+      
+      // If cam enabled, append video
+      if(p.camEnabled && p.stream){
+        const v = document.createElement('video');
+        v.autoplay = true;
+        v.muted = true; // Always mute local to prevent echo, remote handled by webrtc
+        v.playsInline = true;
+        v.srcObject = p.stream;
+        if(p.isLocal) v.style.transform = 'scaleX(-1)'; // Mirror local teacher
+        v.style.width='100%'; v.style.height='100%'; v.style.objectFit='cover';
+        teacherTile.appendChild(v);
+        
+        // Add overlay name
+        const nameOverlay = document.createElement('div');
+        nameOverlay.className = 'video-tile-name';
+        nameOverlay.style.position = 'absolute';
+        nameOverlay.style.bottom = '8px';
+        nameOverlay.style.left = '8px';
+        nameOverlay.style.zIndex = '2';
+        nameOverlay.innerHTML = `<span class="${p.isSpeaking?'speaking':''}">${p.name||'Instructor'}</span>`;
+        // teacherTile.appendChild(nameOverlay); // Optional, maybe clean design avoids it
+      } else {
+        // Show placeholder
+        teacherTile.innerHTML = `<div class="video-placeholder"><i class="fas fa-user-tie"></i></div><div class="video-tile-name"><span id="teacherNameDisplay">${p.name||'Instructor'}</span></div>`;
+      }
+    }
+    teacherFound = true;
+  } else {
+    // Teacher not here, show default
+    if(teacherTile){
+       teacherTile.innerHTML = `<div class="video-placeholder"><i class="fas fa-user-tie"></i></div><div class="video-tile-name"><span id="teacherNameDisplay">Waiting for Instructor...</span></div>`;
+    }
   }
 
-  const strip=document.createElement('div');
-  strip.className='video-tiles-strip';
+  // 2. Handle Grid (Students + Teacher if not in sidebar? No, Teacher always in sidebar)
+  // Actually, if I am the teacher, I should be in the sidebar.
+  
+  const strip=document.createDocumentFragment();
+  let studentCount = 0;
 
   for(const [id,p] of participants){
-    if(id===pinnedId) continue;
+    if(id === teacherId) continue; // Skip teacher, already in sidebar
     strip.appendChild(createVideoTile(p,id));
+    studentCount++;
   }
 
   grid.appendChild(strip);
-  grid.dataset.count = Math.min(participants.size, 9);
+  grid.className = 'video-grid auto-layout'; // Default to auto layout for students
+  grid.dataset.count = Math.min(studentCount, 12);
+  
   $('participantCount').textContent = participants.size;
   $('studentsBadgeMenu').textContent = participants.size;
 }
@@ -2133,10 +2181,10 @@ async function applyDeviceChange(newMicId, newCamId){
 }
 
 function initAudioVisualizer(){
-  const micFill = $('micLevelFill');
-  const outFill = $('outLevelFill');
-  if(!micFill || !outFill) return;
+  const canvas = $('audioVisualizer');
+  if(!canvas) return;
   if(!localStream) return;
+  
   try{
     if(!visualizerCtx) visualizerCtx = new (window.AudioContext||window.webkitAudioContext)();
     if(visualizerCtx.state === 'suspended') visualizerCtx.resume().catch(()=>{});
@@ -2147,32 +2195,38 @@ function initAudioVisualizer(){
     micSourceNode = visualizerCtx.createMediaStreamSource(localStream);
     micSourceNode.connect(micAnalyser);
 
-    if(!outAnalyser){
-      outAnalyser = visualizerCtx.createAnalyser();
-      outAnalyser.fftSize = 256;
-    }
+    const ctx = canvas.getContext('2d');
+    const bufferLength = micAnalyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
 
-    const calcLevel = analyser=>{
-      if(!analyser) return 0;
-      const data = new Uint8Array(analyser.fftSize);
-      analyser.getByteTimeDomainData(data);
-      let sum = 0;
-      for(let i=0;i<data.length;i++){
-        const v = (data[i]-128)/128;
-        sum += v*v;
+    const draw = () => {
+      visualizerRaf = requestAnimationFrame(draw);
+      
+      micAnalyser.getByteFrequencyData(dataArray);
+
+      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--surface2') || '#1e1e1e';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const barWidth = (canvas.width / bufferLength) * 2.5;
+      let barHeight;
+      let x = 0;
+
+      for(let i = 0; i < bufferLength; i++) {
+        barHeight = dataArray[i] / 2; // Scale down
+
+        // Gradient based on height
+        ctx.fillStyle = `rgb(${barHeight + 100}, 50, 200)`; // Purple-ish
+        if(barHeight > 80) ctx.fillStyle = 'rgb(250,50,50)'; // Red clipping
+
+        // Draw bar
+        ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+
+        x += barWidth + 1;
       }
-      return Math.sqrt(sum / data.length);
     };
 
-    const render = ()=>{
-      const micLevel = calcLevel(micAnalyser);
-      const outLevel = calcLevel(outAnalyser);
-      micFill.style.width = Math.min(100, micLevel * 140) + '%';
-      outFill.style.width = Math.min(100, outLevel * 140) + '%';
-      visualizerRaf = requestAnimationFrame(render);
-    };
     if(visualizerRaf) cancelAnimationFrame(visualizerRaf);
-    render();
+    draw();
   }catch(e){
     console.warn('Audio visualizer init failed:', e);
   }

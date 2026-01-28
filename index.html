@@ -249,6 +249,71 @@ input,select{font:inherit}
 /* MAIN CONTENT */
 .main-content{flex:1;display:flex;overflow:hidden;position:relative}
 
+/* LEFT SIDEBAR */
+.left-sidebar{
+  width: 280px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.sidebar-header{
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-header h3{
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sidebar-header h3 i{ color: var(--accent); }
+
+.teacher-video-container{
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.teacher-video-container .video-tile{
+  width: 100%;
+  aspect-ratio: 16/9;
+  border-radius: 10px;
+  background: black;
+  position: relative;
+  overflow: hidden;
+}
+
+.visualizer-container{
+  padding: 12px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.visualizer-header{
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+#audioVisualizer{
+  width: 100%;
+  height: 120px;
+  background: var(--surface2);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+@media(max-width: 1024px){
+  .left-sidebar{ display: none; } /* Hide on mobile for now, or adapt */
+}
+
 /* VIDEO AREA */
 .video-area{flex:1;display:flex;flex-direction:column;min-width:0;position:relative}
 .video-grid{flex:1;display:grid;gap:6px;padding:8px;overflow:hidden}
@@ -735,6 +800,24 @@ input,select{font:inherit}
     </div>
 
     <div class="main-content">
+      <!-- LEFT SIDEBAR -->
+      <div class="left-sidebar">
+        <div class="sidebar-header">
+          <h3><i class="fas fa-chalkboard-teacher"></i> Instructor</h3>
+        </div>
+        <div class="teacher-video-container">
+          <div class="video-tile" id="teacherVideoTile">
+             <div class="video-placeholder"><i class="fas fa-user-tie"></i></div>
+             <div class="video-tile-name"><span id="teacherNameDisplay">Instructor</span></div>
+          </div>
+        </div>
+        
+        <div class="visualizer-container">
+           <div class="visualizer-header"><i class="fas fa-wave-square"></i> Audio Visualizer</div>
+           <canvas id="audioVisualizer" width="280" height="120"></canvas>
+        </div>
+      </div>
+
       <div class="video-area">
         <div class="video-grid pinned-view" id="videoGrid" data-count="1"></div>
 
