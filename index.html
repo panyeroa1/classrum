@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <meta name="description" content="Real-time multilingual video classroom with live transcription and translation - 10x more robust than Zoom"/>
+  <meta name="theme-color" content="#6366f1"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="Success Class"/>
+  <link rel="manifest" href="manifest.json"/>
+  <link rel="icon" type="image/svg+xml" href="assets/logo.svg"/>
+  <link rel="apple-touch-icon" href="assets/icon-192.png"/>
+  <title>Success Class – Real-time Translation Classroom</title>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <!-- Stream Video JS SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@stream-io/video-client@latest/dist/index.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
+
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+
+<body>
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-card">
+      <div class="loading-icon"><i class="fas fa-circle-notch fa-spin"></i></div>
+      <div class="loading-title" id="loadingTitle">Checking authentication</div>
+      <div class="loading-text" id="loadingMessage">Please wait while we verify your session.</div>
+      <div class="loading-actions is-hidden" id="loadingActions">
+        <a class="loading-btn" href="auth.html">Go to Sign In</a>
+        <a class="loading-btn secondary" href="index.html">Retry</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRE-JOIN -->
+  <div class="prejoin-overlay" id="prejoinOverlay">
+    <div class="prejoin-container">
+      <div class="prejoin-preview">
+        <div class="prejoin-video-wrapper">
+          <video id="prejoinVideo" autoplay muted playsinline></video>
+          <div class="prejoin-video-off" id="prejoinVideoOff"><i class="fas fa-video-slash"></i><span>Camera is off</span></div>
+        </div>
+        <div class="prejoin-controls">
+          <button class="prejoin-toggle" id="prejoinMicToggle" title="Mic"><i class="fas fa-microphone"></i></button>
+          <button class="prejoin-toggle" id="prejoinCamToggle" title="Camera"><i class="fas fa-video"></i></button>
+        </div>
+      </div>
+      <div class="prejoin-form">
+        <h2>Join Classroom</h2>
+        <p>Configure your settings before joining</p>
+        <div class="prejoin-user" id="prejoinUser">
+          <div class="prejoin-user-avatar" id="prejoinAvatar">?</div>
+          <div class="prejoin-user-info"><h4 id="prejoinName">User</h4><p id="prejoinEmail">user@example.com</p></div>
+        </div>
+        <div class="device-select-group">
+          <label><i class="fas fa-user"></i> Display Name</label>
+          <input type="text" id="displayNameInput" placeholder="Enter your name" maxlength="50"/>
+        </div>
+        <div class="prejoin-room-input">
+          <span class="prejoin-room-prefix">CLASS-</span>
+          <input type="text" id="roomIdInput" placeholder="ORBIT (default)" maxlength="6" value="ORBIT"/>
+        </div>
+        <div style="margin: 12px 0; text-align: center; font-size: 12px; color: var(--text-muted);">
+          Using Stream.io video calling with all features enabled
+        </div>
+        <div class="device-select-group"><label><i class="fas fa-language"></i> Language</label><select id="userLanguageSelect"></select></div>
+        <div class="device-select-group"><label><i class="fas fa-microphone"></i> Microphone</label><select id="micSelect"></select></div>
+        <div class="device-select-group"><label><i class="fas fa-video"></i> Camera</label><select id="camSelect"></select></div>
+        <div class="device-select-group"><label><i class="fas fa-volume-up"></i> Speaker</label><select id="speakerSelect"></select></div>
+        <button class="btn-primary" id="btnJoinRoom"><i class="fas fa-sign-in-alt"></i> Join Class</button>
+        <button class="btn-logout" id="btnLogout"><i class="fas fa-sign-out-alt"></i> Sign Out</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN APP -->
+  <div class="app-container" id="appContainer">
+    <div class="top-header">
+      <div class="header-left">
+        <div class="header-logo"><div class="logo-icon"><i class="fas fa-graduation-cap"></i></div><span>Success Class</span></div>
+        <div class="room-badge"><span class="room-badge-id" id="displayRoomId">XXXXXX</span><span class="room-badge-sep">|</span><i class="fas fa-circle"></i><span id="participantCount">1</span></div>
+      </div>
+      <div class="header-center"><div class="meeting-timer" id="meetingTimer"><i class="fas fa-circle"></i><span id="timerDisplay">00:00</span></div></div>
+      <div class="header-right">
+        <button class="header-btn" id="btnTranscript" title="Transcripts"><i class="fas fa-closed-captioning"></i></button>
+        <button class="header-btn danger" id="btnLeaveHeader" title="Leave"><i class="fas fa-sign-out-alt"></i></button>
+        <div class="header-menu-container">
+          <button class="header-btn" id="btnHeaderMenu" title="Menu"><i class="fas fa-ellipsis-v"></i></button>
+          <div class="header-menu" id="headerMenu">
+            <button class="header-menu-item" id="btnChatMenu"><i class="fas fa-comments"></i><span>Group Chat</span><span class="menu-badge" id="chatBadgeMenu" style="display:none">0</span></button>
+            <button class="header-menu-item" id="btnAutoTTSMenu"><i class="fas fa-volume-up"></i><span>Auto-play Audio</span></button>
+            <button class="header-menu-item" id="btnStudentsMenu"><i class="fas fa-users"></i><span>Participants</span><span class="menu-badge" id="studentsBadgeMenu">1</span></button>
+            <button class="header-menu-item" id="btnPiPMenu"><i class="fas fa-external-link-square-alt"></i><span>Picture-in-Picture</span></button>
+            <div class="header-menu-divider"></div>
+            <button class="header-menu-item" id="btnSettingsMenu"><i class="fas fa-cog"></i><span>Settings</span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="main-content layout-3col" id="mainContent">
+      <aside class="teacher-panel" id="teacherPanel">
+        <div class="teacher-video-slot">
+          <div class="video-grid pinned-view" id="videoGrid" data-count="1"></div>
+          <div class="shared-content" id="sharedContent">
+            <div class="shared-content-header">
+              <h4><i class="fas fa-desktop"></i> <span id="sharedContentTitle">Screen Share</span></h4>
+              <button class="panel-close" id="btnStopSharing"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="shared-content-body" id="sharedContentBody">
+              <video id="screenShareVideo" autoplay playsinline></video>
+              <canvas id="whiteboardCanvas" width="1280" height="720"></canvas>
+            </div>
+            <div class="whiteboard-tools is-hidden" id="whiteboardTools">
+              <button class="whiteboard-tool active" data-tool="pen"><i class="fas fa-pen"></i></button>
+              <button class="whiteboard-tool" data-tool="eraser"><i class="fas fa-eraser"></i></button>
+              <button class="whiteboard-tool"><input type="color" id="whiteboardColor" value="#000000"/></button>
+              <button class="whiteboard-tool" id="btnClearBoard"><i class="fas fa-trash"></i></button>
+            </div>
+          </div>
+        </div>
+        <div class="teacher-visualizer">
+          <h4><i class="fas fa-wave-square"></i> Audio Levels</h4>
+          <div class="audio-meter">
+            <span>Mic</span>
+            <div class="meter-track"><div class="meter-fill" id="micLevelFill"></div></div>
+          </div>
+          <div class="audio-meter">
+            <span>Output</span>
+            <div class="meter-track"><div class="meter-fill" id="outLevelFill"></div></div>
+          </div>
+        </div>
+      </aside>
+
+      <section class="center-panel" id="centerPanel">
+        <div class="transcript-panel" id="transcriptPanel">
+          <div class="transcript-header">
+            <div class="transcript-header-left">
+              <h3><i class="fas fa-language"></i> Transcripts</h3>
+              <button class="btn-auto-tts" id="btnAutoTTS"><i class="fas fa-volume-up"></i><span>Auto</span><span class="queue-count" id="ttsQueueBadge">0</span></button>
+            </div>
+            <div class="transcript-header-right">
+              <div class="transcript-view-toggle"><button class="active" data-view="unified">Unified</button><button data-view="split">Split</button></div>
+              <button class="transcript-expand" id="btnExpandTranscript" title="Expand"><i class="fas fa-expand-alt"></i></button>
+              <button class="transcript-collapse" id="btnToggleCenter" title="Minimize"><i class="fas fa-minus"></i></button>
+            </div>
+          </div>
+          <div class="transcript-tools">
+            <div class="transcript-tool">
+              <label for="transcriptMicSelect"><i class="fas fa-microphone"></i> Audio source</label>
+              <select id="transcriptMicSelect"></select>
+            </div>
+            <div class="transcript-tool">
+              <label for="sttLangSelect"><i class="fas fa-wave-square"></i> STT Source Language</label>
+              <select id="sttLangSelect"></select>
+            </div>
+            <div class="transcript-tool">
+              <label for="translationLangSelect"><i class="fas fa-language"></i> Translation Target Language</label>
+              <select id="translationLangSelect"></select>
+            </div>
+          </div>
+          <div class="transcript-content">
+            <div class="transcript-unified" id="transcriptUnified">
+              <div class="transcript-empty" id="transcriptEmpty"><i class="fas fa-language"></i><p>Transcripts appear here as participants speak</p></div>
+            </div>
+            <div class="transcript-split" id="transcriptSplit">
+              <div class="transcript-column"><div class="transcript-column-header">Original</div><div class="transcript-column-content" id="originalColumn"></div></div>
+              <div class="transcript-column"><div class="transcript-column-header">Translation</div><div class="transcript-column-content" id="translationColumn"></div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="students-panel" id="studentsPanel">
+        <div class="panel-header"><h3><i class="fas fa-users"></i> Participants</h3></div>
+        <div class="panel-section queue-section">
+          <div class="panel-section-title">Raise Hand Queue</div>
+          <div class="students-list" id="handQueueList"></div>
+        </div>
+        <div class="panel-section students-section">
+          <div class="panel-section-title">All Students</div>
+          <div class="students-list" id="studentsList"></div>
+        </div>
+      </aside>
+
+      <div class="chat-panel" id="chatPanel">
+        <div class="panel-header"><h3><i class="fas fa-comments"></i> Group Chat</h3><button class="panel-close" id="btnCloseChat"><i class="fas fa-times"></i></button></div>
+        <div class="chat-messages" id="chatMessages">
+          <div class="chat-empty" id="chatEmpty"><i class="fas fa-comments"></i><p>No messages yet.<br>Start the conversation!</p></div>
+        </div>
+        <div class="chat-input-container">
+          <input type="text" class="chat-input" id="chatInput" placeholder="Type a message..." maxlength="500">
+          <button class="chat-send" id="btnSendChat"><i class="fas fa-paper-plane"></i></button>
+        </div>
+      </div>
+
+      
+    </div>
+
+    <!-- Zoom-like mobile bar is CSS-only; HTML unchanged -->
+    <div class="control-bar">
+      <div class="control-bar-left"><div class="meeting-timer is-hidden" id="mobileTimer"><i class="fas fa-circle"></i><span id="mobileTimerDisplay">00:00</span></div></div>
+
+      <button class="control-btn" id="btnMic"><i class="fas fa-microphone"></i><span>Mute</span></button>
+      <button class="control-btn" id="btnCamera"><i class="fas fa-video"></i><span>Video</span></button>
+      <button class="control-btn" id="btnScreenShare"><i class="fas fa-desktop"></i><span>Share</span></button>
+      <button class="control-btn" id="btnWhiteboard"><i class="fas fa-chalkboard"></i><span>Board</span></button>
+      <button class="control-btn" id="btnTools" onclick="window.open('tools.html','_blank')"><i class="fas fa-tools"></i><span>Tools</span></button>
+
+      <div class="control-divider"></div>
+
+      <button class="control-btn" id="btnRaiseHand"><i class="fas fa-hand-paper"></i><span>Hand</span></button>
+      <button class="control-btn" id="btnChat"><i class="fas fa-comments"></i><span>Chat</span></button>
+      <button class="control-btn active" id="btnTranscribe"><i class="fas fa-closed-captioning"></i><span>Caption</span></button>
+      <button class="control-btn" id="btnQuiz" title="Generate Quiz"><i class="fas fa-question-circle"></i><span>Quiz</span></button>
+      <button class="control-btn" id="btnRecord"><i class="fas fa-circle"></i><span>Record</span></button>
+
+      <div class="control-divider"></div>
+
+      <button class="control-btn danger" id="btnLeave"><i class="fas fa-phone-slash"></i><span>Leave</span></button>
+
+      <div class="control-bar-right"><span id="displayUserLang" class="text-muted-small"></span></div>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="settings-overlay" id="settingsOverlay">
+    <div class="settings-modal">
+      <div class="settings-header"><h2><i class="fas fa-cog"></i> Settings</h2><button class="settings-close" id="btnCloseSettings"><i class="fas fa-times"></i></button></div>
+      <div class="settings-tabs">
+        <button class="settings-tab active" data-tab="devices">Devices</button>
+        <button class="settings-tab" data-tab="language">Language</button>
+        <button class="settings-tab" data-tab="audio">Audio</button>
+      </div>
+      <div class="settings-content">
+        <div class="settings-section active" data-section="devices">
+          <h4><i class="fas fa-video"></i> Video & Audio Devices</h4>
+          <div class="setting-row"><label>Camera</label><select id="settingsCamSelect"></select></div>
+          <div class="setting-row"><label>Microphone</label><select id="settingsMicSelect"></select></div>
+          <div class="setting-row"><label>Speaker</label><select id="settingsSpeakerSelect"></select></div>
+        </div>
+        <div class="settings-section" data-section="language">
+          <h4><i class="fas fa-language"></i> Translation Settings</h4>
+          <div class="setting-row"><label>Translation Language</label><select id="settingsLanguageSelect"></select></div>
+          <div class="setting-row-inline"><label>Auto-play translations</label><div class="toggle-switch" id="toggleAutoTTS"></div></div>
+        </div>
+        <div class="settings-section" data-section="audio">
+          <h4><i class="fas fa-volume-up"></i> Audio Settings</h4>
+          <div class="setting-row-inline"><label>Echo cancellation</label><div class="toggle-switch active" id="toggleEcho"></div></div>
+          <div class="setting-row-inline"><label>Noise suppression</label><div class="toggle-switch active" id="toggleNoise"></div></div>
+          <div class="setting-row-inline"><label>Auto gain control</label><div class="toggle-switch active" id="toggleGain"></div></div>
+        </div>
+      </div>
+      <div class="settings-footer"><button class="btn-settings-save" id="btnSaveSettings">Save Changes</button></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script src="js/app.js"></script>
+</body>
+</html>

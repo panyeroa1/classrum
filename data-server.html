@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <meta name="description" content="Collect Flemish training data for STT, LLM, and TTS"/>
+  <meta name="theme-color" content="#6366f1"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="Success Class"/>
+  <link rel="manifest" href="manifest.json"/>
+  <link rel="icon" type="image/svg+xml" href="assets/logo.svg"/>
+  <link rel="apple-touch-icon" href="assets/icon-192.png"/>
+  <title>Flemish Data Server – Success Class</title>
+  <link rel="stylesheet" href="css/data-server.css"/>
+</head>
+<body>
+  <main class="data-page">
+    <header class="data-header">
+      <div class="data-brand">
+        <div class="brand-icon">SC</div>
+        <div>
+          <h1>Flemish Data Server</h1>
+          <p>Collect Dutch (nl-BE) training samples for STT, LLM, and TTS</p>
+        </div>
+      </div>
+      <div class="data-actions">
+        <a class="link-btn" href="index.html">Back to classroom</a>
+        <button class="btn ghost" id="syncNowBtn" type="button">Sync now</button>
+      </div>
+    </header>
+
+    <section class="data-card">
+      <h2>Audio & Text Samples</h2>
+      <p class="muted">Provide audio, corrected text, and pronunciation notes to improve Flemish accuracy.</p>
+
+      <form id="dataForm" class="data-form" novalidate>
+        <div class="field-group">
+          <label for="audioFile">Upload audio clip</label>
+          <input id="audioFile" type="file" accept="audio/*"/>
+          <div class="record-row">
+            <button class="btn" id="recordBtn" type="button">Start recording</button>
+            <span class="record-status" id="recordStatus">Not recording</span>
+          </div>
+          <audio id="audioPreview" controls></audio>
+        </div>
+
+        <div class="field-row">
+          <div class="field-group">
+            <label for="micSelect">Microphone used</label>
+            <select id="micSelect"></select>
+          </div>
+          <div class="field-group">
+            <label for="localeInput">Locale</label>
+            <input id="localeInput" type="text" readonly />
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label for="groundTruth">Ground-truth text</label>
+          <textarea id="groundTruth" rows="3" placeholder="Exact spoken words"></textarea>
+        </div>
+
+        <div class="field-group">
+          <label for="correctedTranscript">Corrected transcript (if ASR was wrong)</label>
+          <textarea id="correctedTranscript" rows="3" placeholder="What the transcript should have been"></textarea>
+        </div>
+
+        <div class="field-group">
+          <label for="pronunciationHints">Pronunciation hints (phonetic, SSML, or spelling)</label>
+          <textarea id="pronunciationHints" rows="2" placeholder="Optional hints for Flemish pronunciation"></textarea>
+        </div>
+
+        <div class="field-group">
+          <label for="preferredTts">Preferred TTS output (how it should sound)</label>
+          <textarea id="preferredTts" rows="2" placeholder="Optional: ideal Flemish TTS output"></textarea>
+        </div>
+
+        <div class="field-row">
+          <div class="field-group">
+            <label for="sttLang">STT Source Language</label>
+            <select id="sttLang">
+              <option value="nl-BE">Dutch (Flemish)</option>
+              <option value="nl">Dutch</option>
+              <option value="auto">Auto</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label for="translationLang">Translation Target Language</label>
+            <select id="translationLang">
+              <option value="nl-BE">Dutch (Flemish)</option>
+              <option value="en">English</option>
+              <option value="fr">French</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label for="metadataNotes">Extra metadata / notes</label>
+          <textarea id="metadataNotes" rows="2" placeholder="Optional notes (noise conditions, accent, etc.)"></textarea>
+        </div>
+
+        <button class="btn primary" type="submit">Save sample</button>
+        <div class="status" id="status"></div>
+      </form>
+    </section>
+
+    <section class="data-card">
+      <h2>Recent local samples</h2>
+      <div id="localSamples" class="samples-list"></div>
+    </section>
+  </main>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script src="js/data-server.js"></script>
+</body>
+</html>
