@@ -698,11 +698,95 @@ input,select{font:inherit}
   .prejoin-room-prefix{padding:12px 14px;font-size:12px}
   .btn-primary{padding:14px 20px;font-size:14px}
 
-  .video-grid{padding:4px;gap:4px}
-  .video-tile{border-radius:8px}
-  .video-tile-bottom{padding:6px 8px}
-  .video-tile-name{font-size:10px}
-  .video-placeholder{width:40px;height:40px;font-size:16px}
+/* MAIN CONTENT: 3-Panel Grid */
+.main-content {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 280px 1fr 280px; /* Left (Teacher), Center, Right (Students) */
+  grid-template-rows: 1fr;
+  overflow: hidden;
+  position: relative;
+  background: var(--bg);
+}
+
+/* Left Sidebar: 280px (Already defined, but ensuring structure) */
+.left-sidebar {
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  z-index: 10;
+}
+
+/* Center Panel: Flexible */
+.center-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+/* Reuse Transcript Panel as Static Center */
+.transcript-panel.static-panel {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  transform: none;
+  border: none;
+  background: transparent;
+  display: flex; /* Always visible */
+  z-index: 1;
+}
+
+/* Right Panel: 280px */
+.right-panel {
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  z-index: 10;
+}
+
+/* Reuse Students Panel as Static Right */
+.students-panel.static-panel {
+  position: relative;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: none;
+  border: none;
+  display: flex;
+  background: transparent;
+}
+
+/* Chat Panel still overlay (slide from right) */
+.chat-panel {
+  z-index: 20; /* Above right panel */
+  /* keep existing transition styles */
+}
+
+/* Screen Share Overlay (Takes over center) */
+.shared-content.active {
+  z-index: 30; /* Top of center */
+  background: var(--bg);
+}
+
+/* Mobile Responsive Override */
+@media(max-width: 1024px) {
+  .main-content {
+    display: flex;
+    flex-direction: column;
+  }
+  .left-sidebar, .right-panel {
+    display: none; /* Hide sidebars on mobile, rely on overlays/toggles */
+  }
+  .center-panel {
+    flex: 1;
+  }
+  /* Restore overlay behavior for panels on mobile if needed, 
+     but for now we focus on Desktop 3-panel request */
+}
 
   .settings-modal{border-radius:16px}
   .settings-header{padding:16px 20px}
@@ -818,7 +902,9 @@ input,select{font:inherit}
         </div>
       </div>
 
-      <div class="video-area">
+      <!-- Remove old video-area div wrap for grid flow, or hide it -->
+      <div class="video-area-hidden" style="display:none">
+        <div class="video-grid pinned-view" id="videoGrid" data-count="1"></div>
         <div class="video-grid pinned-view" id="videoGrid" data-count="1"></div>
 
         <div class="shared-content" id="sharedContent">
@@ -832,16 +918,57 @@ input,select{font:inherit}
           </div>
           <div class="whiteboard-tools is-hidden" id="whiteboardTools">
             <button class="whiteboard-tool active" data-tool="pen"><i class="fas fa-pen"></i></button>
-            <button class="whiteboard-tool" data-tool="eraser"><i class="fas fa-eraser"></i></button>
-            <button class="whiteboard-tool"><input type="color" id="whiteboardColor" value="#000000"/></button>
-            <button class="whiteboard-tool" id="btnClearBoard"><i class="fas fa-trash"></i></button>
+      </div>
+
+      <!-- CENTER PANEL: TRANSCRIPTS -->
+      <div class="center-panel" id="centerPanel">
+        <div class="transcript-panel static-panel" id="transcriptPanel">
+          <div class="transcript-header">
+            <div class="transcript-header-left">
+              <h3><i class="fas fa-language"></i> Transcripts</h3>
+              <button class="btn-auto-tts" id="btnAutoTTS"><i class="fas fa-volume-up"></i><span>Auto</span><span class="queue-count" id="ttsQueueBadge">0</span></button>
+            </div>
+            <div class="transcript-header-right">
+              <div class="transcript-view-toggle"><button class="active" data-view="unified">Unified</button><button data-view="split">Split</button></div>
+            </div>
+          </div>
+          <div class="transcript-content">
+            <div class="transcript-unified" id="transcriptUnified">
+              <div class="transcript-empty" id="transcriptEmpty"><i class="fas fa-language"></i><p>Transcripts appear here as participants speak</p></div>
+            </div>
+            <div class="transcript-split" id="transcriptSplit">
+              <div class="transcript-column"><div class="transcript-column-header">Original</div><div class="transcript-column-content" id="originalColumn"></div></div>
+              <div class="transcript-column"><div class="transcript-column-header">Translation</div><div class="transcript-column-content" id="translationColumn"></div></div>
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="students-panel" id="studentsPanel">
-        <div class="panel-header"><h3><i class="fas fa-users"></i> Participants</h3><button class="panel-close" id="btnCloseStudents"><i class="fas fa-times"></i></button></div>
-        <div class="students-list" id="studentsList"></div>
+      <!-- RIGHT PANEL: PARTICIPANTS -->
+      <div class="right-panel">
+        <div class="students-panel static-panel" id="studentsPanel">
+          <div class="panel-header"><h3><i class="fas fa-users"></i> Participants</h3></div>
+          <div class="students-list" id="studentsList"></div>
+        </div>
+      </div>
+      
+      <!-- HIDDEN/OVERLAY COMPONENTS (Chat, Screen Share usually overlay or replace center) -->
+      <!-- We keep screen share as overlay for now or replace center -->
+      <div class="shared-content" id="sharedContent">
+        <div class="shared-content-header">
+          <h4><i class="fas fa-desktop"></i> <span id="sharedContentTitle">Screen Share</span></h4>
+          <button class="panel-close" id="btnStopSharing"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="shared-content-body" id="sharedContentBody">
+          <video id="screenShareVideo" autoplay playsinline></video>
+          <canvas id="whiteboardCanvas" width="1280" height="720"></canvas>
+        </div>
+        <div class="whiteboard-tools is-hidden" id="whiteboardTools">
+          <button class="whiteboard-tool active" data-tool="pen"><i class="fas fa-pen"></i></button>
+          <button class="whiteboard-tool" data-tool="eraser"><i class="fas fa-eraser"></i></button>
+          <button class="whiteboard-tool"><input type="color" id="whiteboardColor" value="#000000"/></button>
+          <button class="whiteboard-tool" id="btnClearBoard"><i class="fas fa-trash"></i></button>
+        </div>
       </div>
 
       <div class="chat-panel" id="chatPanel">
@@ -855,28 +982,7 @@ input,select{font:inherit}
         </div>
       </div>
 
-      <div class="transcript-panel" id="transcriptPanel">
-        <div class="transcript-header">
-          <div class="transcript-header-left">
-            <h3><i class="fas fa-language"></i> Transcripts</h3>
-            <button class="btn-auto-tts" id="btnAutoTTS"><i class="fas fa-volume-up"></i><span>Auto</span><span class="queue-count" id="ttsQueueBadge">0</span></button>
-          </div>
-          <div class="transcript-header-right">
-            <div class="transcript-view-toggle"><button class="active" data-view="unified">Unified</button><button data-view="split">Split</button></div>
-            <button class="transcript-expand" id="btnExpandTranscript" title="Expand"><i class="fas fa-expand-alt"></i></button>
-            <button class="panel-close" id="btnCloseTranscript"><i class="fas fa-times"></i></button>
-          </div>
-        </div>
-        <div class="transcript-content">
-          <div class="transcript-unified" id="transcriptUnified">
-            <div class="transcript-empty" id="transcriptEmpty"><i class="fas fa-language"></i><p>Transcripts appear here as participants speak</p></div>
-          </div>
-          <div class="transcript-split" id="transcriptSplit">
-            <div class="transcript-column"><div class="transcript-column-header">Original</div><div class="transcript-column-content" id="originalColumn"></div></div>
-            <div class="transcript-column"><div class="transcript-column-header">Translation</div><div class="transcript-column-content" id="translationColumn"></div></div>
-          </div>
-        </div>
-      </div>
+      <!-- Removed old transcript panel from bottom -->
     </div>
 
     <!-- Zoom-like mobile bar is CSS-only; HTML unchanged -->
@@ -892,6 +998,7 @@ input,select{font:inherit}
       <div class="control-divider"></div>
 
       <button class="control-btn" id="btnRaiseHand"><i class="fas fa-hand-paper"></i><span>Hand</span></button>
+      <button class="control-btn" id="btnParticipantsToggle"><i class="fas fa-users"></i><span>People</span></button>
       <button class="control-btn" id="btnChat"><i class="fas fa-comments"></i><span>Chat</span></button>
       <button class="control-btn active" id="btnTranscribe"><i class="fas fa-closed-captioning"></i><span>Caption</span></button>
       <button class="control-btn" id="btnQuiz" title="Generate Quiz"><i class="fas fa-question-circle"></i><span>Quiz</span></button>
