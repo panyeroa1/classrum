@@ -9,8 +9,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
   <meta name="apple-mobile-web-app-title" content="Success Class"/>
   <link rel="manifest" href="manifest.json"/>
-  <link rel="icon" type="image/svg+xml" href="assets/logo.svg"/>
-  <link rel="apple-touch-icon" href="assets/icon-192.png"/>
+  <link rel="icon" type="image/svg+xml" href="logo.svg"/>
+  <link rel="apple-touch-icon" href="icon-192.png"/>
   <title>Success Class – Real-time Translation Classroom</title>
 
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -21,7 +21,638 @@
   <script src="https://cdn.jsdelivr.net/npm/@stream-io/video-client@latest/dist/index.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
 
-  <link rel="stylesheet" href="css/style.css"/>
+  <style>
+:root{
+  --bg:#0d0d0d;--surface:#161616;--surface2:#1e1e1e;--surface3:#282828;--border:#333;
+  --text:#f5f5f5;--text-muted:#888;--accent:#6366f1;--accent2:#4f46e5;
+  --green:#22c55e;--red:#ef4444;--blue:#3b82f6;--orange:#f97316;--yellow:#eab308;--cyan:#06b6d4;
+  --nav-safe: env(safe-area-inset-bottom);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);
+  min-height:100vh;min-height:100dvh;overflow:hidden;
+  -webkit-touch-callout:none;-webkit-user-select:none;user-select:none;touch-action:pan-y
+}
+@media(max-width:1024px){body{overflow-y:auto;overflow-x:hidden}}
+button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
+input,select{font:inherit}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+/* LOADING / AUTH CHECK */
+.loading-overlay{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;text-align:center}
+.loading-card{background:var(--surface);border-radius:20px;padding:28px;max-width:420px;width:100%;box-shadow:0 25px 50px rgba(0,0,0,.5)}
+.loading-icon{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,var(--accent),var(--cyan));display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:22px}
+.loading-title{font-size:18px;font-weight:700;margin-bottom:8px}
+.loading-text{font-size:14px;color:var(--text-muted);line-height:1.5}
+.loading-actions{margin-top:16px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.loading-btn{padding:10px 16px;border-radius:10px;background:var(--accent);color:#fff;text-decoration:none;font-size:13px;font-weight:600}
+.loading-btn.secondary{background:var(--surface2);color:var(--text)}
+.loading-overlay.hidden{display:none}
+.is-hidden{display:none}
+.text-muted-small{font-size:12px;color:var(--text-muted)}
+
+/* QUIZ MODAL STYLES */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:10000;padding:20px}
+.modal-content{background:var(--surface);border-radius:16px;max-width:500px;width:100%;box-shadow:0 25px 50px rgba(0,0,0,0.5)}
+.modal-header{padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.modal-header h3{font-size:18px;display:flex;align-items:center;gap:8px}
+.modal-close{background:none;border:none;font-size:24px;color:var(--text-muted);cursor:pointer;padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:8px}
+.modal-close:hover{background:var(--surface2)}
+.modal-body{padding:24px}
+.quiz-link-container{margin:16px 0}
+.quiz-link-container label{display:block;font-size:13px;color:var(--text-muted);margin-bottom:8px}
+.link-input-group{display:flex;gap:8px}
+.link-input-group input{flex:1;padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:monospace;font-size:14px}
+.btn-copy{padding:12px 16px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600}
+.btn-copy:hover{background:var(--accent2)}
+.quiz-info{font-size:13px;color:var(--text-muted);margin-top:12px}
+.modal-actions{padding:16px 24px 24px;display:flex;gap:12px;justify-content:flex-end}
+.btn-primary,.btn-secondary{padding:10px 20px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent2)}
+.btn-secondary{background:var(--surface2);color:var(--text)}
+.btn-secondary:hover{background:var(--surface3)}
+
+/* PRE-JOIN (Modern) */
+.prejoin-overlay{
+  position:fixed;inset:0;display:none;z-index:9998;padding:20px;overflow-y:auto;
+  background:
+    radial-gradient(1200px 600px at 20% -10%, rgba(99,102,241,.20), transparent 55%),
+    radial-gradient(900px 500px at 85% 10%, rgba(6,182,212,.14), transparent 60%),
+    radial-gradient(900px 500px at 50% 110%, rgba(34,197,94,.10), transparent 55%),
+    var(--bg);
+}
+.prejoin-overlay.active{display:flex;align-items:center;justify-content:center}
+.prejoin-container{
+  width:100%;max-width:900px;display:grid;grid-template-columns:1fr 1fr;gap:24px;
+  border-radius:24px;overflow:hidden;
+  background: rgba(22,22,22,.78);
+  border: 1px solid rgba(255,255,255,.08);
+  box-shadow: 0 28px 70px rgba(0,0,0,.55);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+@media(max-width:768px){.prejoin-container{grid-template-columns:1fr;max-width:560px}}
+
+.prejoin-preview{
+  display:flex;flex-direction:column;padding:24px;
+  background:
+    radial-gradient(900px 420px at 10% 10%, rgba(99,102,241,.18), transparent 55%),
+    radial-gradient(700px 420px at 90% 30%, rgba(6,182,212,.12), transparent 60%),
+    var(--bg);
+  border-right: 1px solid rgba(255,255,255,.06);
+}
+@media(max-width:768px){.prejoin-preview{border-right:none;border-bottom:1px solid rgba(255,255,255,.06)}}
+
+.prejoin-video-wrapper{
+  position:relative;width:100%;aspect-ratio:16/9;
+  background:rgba(30,30,30,.7);
+  border-radius:16px;overflow:hidden;margin-bottom:16px;
+  border: 1px solid rgba(255,255,255,.08);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.25);
+}
+.prejoin-video-wrapper video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+.prejoin-video-off{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(30,30,30,.85);color:var(--text-muted)}
+.prejoin-video-off i{font-size:48px;margin-bottom:12px}
+.prejoin-video-off.hidden{display:none}
+
+.prejoin-controls{display:flex;justify-content:center;gap:16px}
+.prejoin-toggle{
+  width:56px;height:56px;border-radius:50%;
+  border: 1px solid rgba(255,255,255,.08);
+  background: rgba(30,30,30,.85);
+  display:flex;align-items:center;justify-content:center;font-size:20px;
+  transition:.15s; box-shadow: 0 10px 25px rgba(0,0,0,.25);
+}
+.prejoin-toggle:hover{background:rgba(40,40,40,.92);transform:translateY(-1px)}
+.prejoin-toggle:active{transform:translateY(0)}
+.prejoin-toggle.off{background:var(--red);color:#fff}
+
+.prejoin-form{
+  padding:32px;display:flex;flex-direction:column;
+  background:
+    radial-gradient(900px 380px at 20% 0%, rgba(255,255,255,.06), transparent 55%),
+    rgba(22,22,22,.70);
+}
+.prejoin-form h2{font-size:24px;margin-bottom:8px;letter-spacing:.2px;line-height:1.1}
+.prejoin-form>p{color:var(--text-muted);margin-bottom:24px;font-size:14px;opacity:.95}
+
+.prejoin-user{
+  display:flex;align-items:center;gap:12px;padding:16px;
+  background: rgba(30,30,30,.75);
+  border-radius:12px;margin-bottom:20px;
+  border: 1px solid rgba(255,255,255,.07);
+}
+.prejoin-user-avatar{
+  width:48px;height:48px;border-radius:50%;
+  background: linear-gradient(135deg,var(--accent),var(--cyan));
+  display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;
+  box-shadow: 0 10px 25px rgba(0,0,0,.25);
+}
+.prejoin-user-avatar img{width:100%;height:100%;border-radius:50%;object-fit:cover}
+.prejoin-user-info h4{font-size:16px}
+.prejoin-user-info p{font-size:13px;color:var(--text-muted)}
+
+.prejoin-room-input{display:flex;gap:8px;margin-bottom:16px;background:rgba(30,30,30,.70);padding:8px;border-radius:14px;border:1px solid rgba(255,255,255,.08)}
+.prejoin-room-prefix{background:rgba(30,30,30,.86);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:14px 16px;font-weight:700;color:var(--accent);font-size:13px}
+.prejoin-room-input input{
+  flex:1;background:rgba(30,30,30,.86);border:1px solid rgba(255,255,255,.08);
+  border-radius:12px;padding:14px 16px;color:var(--text);font-size:16px;font-weight:600;
+  font-family:monospace;letter-spacing:3px;text-transform:uppercase
+}
+.prejoin-room-input input:focus{outline:none;border-color:rgba(99,102,241,.65);box-shadow:0 0 0 4px rgba(99,102,241,.18)}
+
+.device-select-group{margin-bottom:16px}
+.device-select-group label{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-muted);margin-bottom:6px}
+.device-select-group label i{font-size:14px}
+.device-select-group input,.device-select-group select{
+  width:100%;padding:12px 14px;background:rgba(30,30,30,.86);
+  border:1px solid rgba(255,255,255,.08);border-radius:10px;color:var(--text);font-size:14px;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.18);
+  transition:border-color .15s, box-shadow .15s, transform .15s;
+}
+.device-select-group input::placeholder{color:rgba(245,245,245,.35)}
+.device-select-group input:focus,.device-select-group select:focus{
+  outline:none;border-color:rgba(99,102,241,.65);
+  box-shadow:0 0 0 4px rgba(99,102,241,.18), inset 0 0 0 1px rgba(0,0,0,.18);
+}
+.prejoin-form .btn-primary{
+  margin-top:auto;border-radius:12px;
+  background:linear-gradient(135deg,var(--accent),var(--cyan));
+  box-shadow:0 14px 35px rgba(0,0,0,.35);
+}
+.prejoin-form .btn-primary:hover{filter:brightness(1.05);transform:translateY(-1px)}
+.prejoin-form .btn-primary:active{transform:translateY(0)}
+.btn-logout{
+  margin-top:16px;padding:12px;
+  background:rgba(30,30,30,.55);
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:10px;color:var(--text-muted);font-size:14px
+}
+.btn-logout:hover{background:rgba(40,40,40,.70);color:var(--text)}
+
+/* MAIN APP */
+.app-container{display:none;height:100vh;height:100dvh;flex-direction:column}
+.app-container.active{display:flex}
+
+/* TOP HEADER (Sticky) */
+.top-header{
+  display:flex;align-items:center;justify-content:space-between;padding:10px 16px;
+  background: rgba(22,22,22,.72);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border-bottom:1px solid rgba(255,255,255,.08);
+  flex-shrink:0;gap:12px;
+
+  position: sticky; top: 0; z-index: 200;
+}
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))){
+  .top-header{ background: var(--surface); }
+}
+.header-left{display:flex;align-items:center;gap:12px}
+.header-logo{display:flex;align-items:center;gap:8px;font-weight:700;font-size:16px}
+.header-logo .logo-icon{width:32px;height:32px;background:linear-gradient(135deg,var(--accent),var(--cyan));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px}
+.room-badge{display:flex;align-items:center;gap:8px;padding:6px 12px;background:var(--surface2);border-radius:8px;font-size:12px}
+.room-badge-id{font-family:monospace;font-weight:600;color:var(--accent);letter-spacing:1px}
+.room-badge-sep{color:var(--border)}
+.room-badge i{color:var(--green)}
+.header-center{flex:1;display:flex;justify-content:center}
+.meeting-timer{display:flex;align-items:center;gap:8px;padding:6px 14px;background:var(--surface2);border-radius:8px;font-size:13px;font-family:monospace}
+.meeting-timer i{color:var(--red)}
+.meeting-timer.recording i{animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.header-right{display:flex;align-items:center;gap:8px}
+.header-btn{width:40px;height:40px;border-radius:10px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:16px;transition:.15s;position:relative}
+.header-btn:hover{background:var(--surface3)}
+.header-btn.active{background:var(--accent);color:#fff}
+.header-btn.danger{background:var(--red);color:#fff}
+.header-btn-badge{position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;background:var(--accent);border-radius:9px;font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;padding:0 5px}
+
+/* HEADER MENU DROPDOWN */
+.header-menu-container{position:relative}
+.header-menu{position:absolute;top:calc(100% + 8px);right:0;background:var(--surface);border:1px solid var(--border);border-radius:12px;min-width:200px;padding:8px;box-shadow:0 10px 40px rgba(0,0,0,.5);z-index:1000;opacity:0;visibility:hidden;transform:translateY(-8px);transition:.15s}
+.header-menu.active{opacity:1;visibility:visible;transform:translateY(0)}
+.header-menu-item{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:8px;font-size:14px;width:100%;text-align:left;transition:.15s}
+.header-menu-item:hover{background:var(--surface2)}
+.header-menu-item i{width:20px;text-align:center;font-size:15px;color:var(--text-muted)}
+.header-menu-item span{flex:1}
+.header-menu-item .menu-badge{background:var(--accent);color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
+.header-menu-item.active i{color:var(--accent)}
+.header-menu-item.danger{color:var(--red)}
+.header-menu-item.danger i{color:var(--red)}
+.header-menu-divider{height:1px;background:var(--border);margin:8px 0}
+@media(max-width:600px){.header-logo span{display:none}.room-badge{display:none}.meeting-timer span{display:none}}
+
+/* MAIN CONTENT */
+.main-content{flex:1;display:flex;overflow:hidden;position:relative}
+
+/* VIDEO AREA */
+.video-area{flex:1;display:flex;flex-direction:column;min-width:0;position:relative}
+.video-grid{flex:1;display:grid;gap:6px;padding:8px;overflow:hidden}
+.video-grid.auto-layout{grid-template-columns:repeat(auto-fit,minmax(240px,1fr));grid-auto-rows:1fr}
+.video-grid[data-count="1"]{grid-template-columns:1fr}
+.video-grid[data-count="2"]{grid-template-columns:repeat(2,1fr)}
+.video-grid[data-count="3"],.video-grid[data-count="4"]{grid-template-columns:repeat(2,1fr);grid-template-rows:repeat(2,1fr)}
+.video-grid[data-count="5"],.video-grid[data-count="6"]{grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr)}
+.video-grid[data-count="7"],.video-grid[data-count="8"],.video-grid[data-count="9"]{grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr)}
+
+/* Teacher-left / students-right pinned view */
+.video-grid.pinned-view{grid-template-columns:1fr 280px;grid-template-rows:1fr}
+.video-grid.pinned-view .video-tile.pinned{grid-row:1;grid-column:1}
+.video-grid.pinned-view .video-tiles-strip{grid-row:1;grid-column:2;display:flex;flex-direction:column;gap:6px;overflow-y:auto}
+.video-grid.pinned-view .video-tiles-strip .video-tile{height:160px;flex:0 0 auto}
+.video-grid.pinned-view .video-tiles-strip{padding:2px}
+@media(max-width:768px){
+  .video-grid.pinned-view{grid-template-columns:1fr;grid-template-rows:1fr 120px}
+  .video-grid.pinned-view .video-tiles-strip{flex-direction:row;overflow-x:auto}
+  .video-grid.pinned-view .video-tiles-strip .video-tile{min-width:160px;height:100%}
+}
+
+.video-tile{position:relative;background:var(--surface);border-radius:12px;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.video-tile video{width:100%;height:100%;object-fit:cover}
+.video-tile.mirror video{transform:scaleX(-1)}
+.video-tile-overlay{position:absolute;inset:0;pointer-events:none}
+.video-tile-top{position:absolute;top:8px;left:8px;right:8px;display:flex;justify-content:space-between;pointer-events:auto}
+.video-tile-actions{display:flex;gap:4px;opacity:0;transition:.2s}
+.video-tile:hover .video-tile-actions{opacity:1}
+.video-tile-action{width:28px;height:28px;border-radius:6px;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;font-size:12px;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+.video-tile-action:hover{background:var(--accent)}
+.video-tile-action.pinned{background:var(--accent)}
+.video-tile-status{display:flex;gap:4px}
+.video-tile-status span{width:24px;height:24px;border-radius:6px;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;font-size:10px;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+.video-tile-status .muted{color:var(--red)}
+.video-tile-bottom{position:absolute;bottom:0;left:0;right:0;padding:8px 12px;background:linear-gradient(transparent,rgba(0,0,0,.7));display:flex;align-items:center;justify-content:space-between}
+.video-tile-name{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500}
+.video-tile-name .speaking{width:8px;height:8px;background:var(--green);border-radius:50%;animation:pulse-speak 1s infinite}
+@keyframes pulse-speak{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.3);opacity:.7}}
+.video-placeholder{width:80px;height:80px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:700}
+
+/* SHARED CONTENT */
+.shared-content{display:none;position:absolute;inset:8px;background:var(--surface);border-radius:12px;overflow:hidden;z-index:5}
+.shared-content.active{display:flex;flex-direction:column}
+.shared-content-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--surface2)}
+.shared-content-header h4{font-size:14px;display:flex;align-items:center;gap:8px}
+.shared-content-header h4 i{color:var(--accent)}
+.shared-content-body{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.shared-content-body video,.shared-content-body canvas{max-width:100%;max-height:100%;object-fit:contain}
+#whiteboardCanvas{background:#fff;cursor:crosshair}
+.whiteboard-tools{display:flex;gap:8px;padding:8px 16px;background:var(--surface2);border-top:1px solid var(--border)}
+.whiteboard-tool{width:36px;height:36px;border-radius:8px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:14px}
+.whiteboard-tool:hover{background:var(--surface3)}
+.whiteboard-tool.active{background:var(--accent);color:#fff}
+.whiteboard-tool input[type="color"]{width:100%;height:100%;border:none;padding:0;cursor:pointer;border-radius:8px}
+
+/* STUDENTS PANEL */
+.students-panel{width:280px;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;transform:translateX(100%);transition:transform .3s ease;position:absolute;right:0;top:0;bottom:0;z-index:20}
+.students-panel.open{transform:translateX(0)}
+.panel-header{display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid var(--border)}
+.panel-header h3{font-size:16px;display:flex;align-items:center;gap:8px}
+.panel-header h3 i{color:var(--accent)}
+.panel-close{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center}
+.panel-close:hover{background:var(--surface2)}
+.students-list{flex:1;overflow-y:auto;padding:12px}
+.student-item{display:flex;align-items:center;gap:12px;padding:12px;border-radius:10px;margin-bottom:8px;background:var(--surface2)}
+.student-item:hover{background:var(--surface3)}
+.student-avatar{width:40px;height:40px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:14px;flex-shrink:0}
+.student-avatar img{width:100%;height:100%;border-radius:50%;object-fit:cover}
+.student-info{flex:1;min-width:0}
+.student-info h5{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.student-info p{font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:4px}
+.student-info p i{font-size:8px}
+.student-info p .online{color:var(--green)}
+.student-actions{display:flex;gap:4px}
+.student-action{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;background:var(--surface)}
+.student-action:hover{background:var(--accent);color:#fff}
+.student-action.muted{color:var(--red)}
+.student-hand{color:var(--yellow);animation:wave 0.5s ease-in-out infinite alternate}
+@keyframes wave{0%{transform:rotate(-10deg)}100%{transform:rotate(10deg)}}
+
+/* CHAT PANEL */
+.chat-panel{width:340px;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;transform:translateX(100%);transition:transform .3s ease;position:absolute;right:0;top:0;bottom:0;z-index:18}
+.chat-panel.open{transform:translateX(0)}
+.chat-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+.chat-message{max-width:85%;padding:10px 14px;border-radius:12px;font-size:14px;line-height:1.4;word-wrap:break-word}
+.chat-message.sent{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:4px}
+.chat-message.received{align-self:flex-start;background:var(--surface2);border-bottom-left-radius:4px}
+.chat-message-header{display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:11px;opacity:0.8}
+.chat-message-header .sender{font-weight:600}
+.chat-message-header .time{opacity:0.7}
+.chat-input-container{padding:12px;border-top:1px solid var(--border);display:flex;gap:8px}
+.chat-input{flex:1;padding:12px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:24px;color:var(--text);font-size:14px;resize:none}
+.chat-input:focus{outline:none;border-color:var(--accent)}
+.chat-send{width:44px;height:44px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;flex-shrink:0}
+.chat-send:hover{background:var(--accent2)}
+.chat-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--text-muted);text-align:center;padding:20px}
+.chat-empty i{font-size:48px;margin-bottom:12px;opacity:0.5}
+@media(max-width:768px){
+  .chat-panel{
+    position:fixed;width:100%;height:70vh;bottom:0;left:0;right:0;top:auto;
+    transform:translateY(100%);border-left:none;border-top:1px solid var(--border);
+    border-radius:20px 20px 0 0
+  }
+  .chat-panel.open{transform:translateY(0)}
+}
+
+/* RAISE HAND */
+.control-btn.hand-raised{background:var(--yellow);color:#000}
+.control-btn.hand-raised i{animation:wave 0.5s ease-in-out infinite alternate}
+.video-tile-hand{position:absolute;top:8px;right:8px;width:32px;height:32px;background:var(--yellow);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;animation:pulse 1s ease-in-out infinite;z-index:5}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+
+/* TRANSCRIPT PANEL */
+.transcript-panel{width:360px;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;transform:translateX(100%);transition:width .3s ease,transform .3s ease;position:absolute;right:0;top:0;bottom:0;z-index:15}
+.transcript-panel.open{transform:translateX(0)}
+.transcript-panel.expanded{width:50vw}
+@media(max-width:768px){.transcript-panel{width:100%}.transcript-panel.expanded{width:100%}}
+.transcript-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);gap:8px;flex-wrap:wrap}
+.transcript-header-left{display:flex;align-items:center;gap:10px}
+.transcript-header-left h3{font-size:15px;display:flex;align-items:center;gap:8px}
+.transcript-header-left h3 i{color:var(--accent)}
+.btn-auto-tts{display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--surface2);border-radius:8px;font-size:12px;font-weight:500;transition:.15s}
+.btn-auto-tts:hover{background:var(--surface3)}
+.btn-auto-tts i{font-size:14px}
+.btn-auto-tts.active{background:var(--green);color:#fff}
+.btn-auto-tts .queue-count{background:var(--accent);padding:1px 6px;border-radius:8px;font-size:10px;display:none}
+.btn-auto-tts .queue-count.show{display:inline}
+.transcript-header-right{display:flex;align-items:center;gap:6px}
+.transcript-view-toggle{display:flex;background:var(--surface2);border-radius:6px;padding:2px}
+.transcript-view-toggle button{padding:5px 10px;border-radius:5px;font-size:11px;font-weight:500;color:var(--text-muted)}
+.transcript-view-toggle button.active{background:var(--accent);color:#fff}
+.transcript-expand{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px}
+.transcript-expand:hover{background:var(--surface2)}
+.transcript-content{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.transcript-unified{flex:1;overflow-y:auto;padding:12px;scroll-behavior:smooth}
+.transcript-unified.hidden{display:none}
+.transcript-entry{margin-bottom:16px;padding:14px;background:var(--surface2);border-radius:12px}
+.transcript-entry-header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.transcript-entry-avatar{width:28px;height:28px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600}
+.transcript-entry-name{font-weight:600;font-size:13px}
+.transcript-entry-time{font-size:11px;color:var(--text-muted);margin-left:auto}
+.transcript-entry-original{font-size:13px;line-height:1.5;padding:10px 12px;background:var(--surface);border-radius:8px;margin-bottom:8px;border-left:3px solid var(--text-muted);color:var(--text-muted)}
+.transcript-entry-translation{font-size:14px;line-height:1.5;padding:10px 12px;background:rgba(99,102,241,.1);border-radius:8px;border-left:3px solid var(--accent)}
+.transcript-entry-actions{display:flex;gap:8px;margin-top:10px}
+.btn-play-entry{display:flex;align-items:center;gap:5px;padding:6px 12px;background:var(--surface);border-radius:6px;font-size:11px;transition:.15s}
+.btn-play-entry:hover{background:var(--accent);color:#fff}
+.btn-play-entry.playing{background:var(--green);color:#fff}
+.transcript-split{flex:1;display:none;overflow:hidden}
+.transcript-split.active{display:flex}
+.transcript-column{flex:1;display:flex;flex-direction:column;min-width:0}
+.transcript-column:first-child{border-right:1px solid var(--border)}
+.transcript-column-header{padding:10px 14px;background:var(--surface2);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted)}
+.transcript-column-content{flex:1;overflow-y:auto;padding:12px;scroll-behavior:smooth}
+.transcript-line{margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+.transcript-line:last-child{border-bottom:none}
+.transcript-line-header{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.transcript-line-avatar{width:20px;height:20px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600}
+.transcript-line-name{font-size:11px;font-weight:600}
+.transcript-line-time{font-size:10px;color:var(--text-muted);margin-left:auto}
+.transcript-line-text{font-size:13px;line-height:1.5}
+.transcript-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;text-align:center;color:var(--text-muted)}
+.transcript-empty i{font-size:48px;margin-bottom:16px;opacity:.5}
+.transcript-empty p{font-size:14px}
+
+/* SETTINGS MODAL */
+.settings-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:1000;padding:20px}
+.settings-overlay.open{display:flex}
+.settings-modal{background:var(--surface);border-radius:20px;width:100%;max-width:600px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column}
+.settings-header{display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid var(--border)}
+.settings-header h2{font-size:20px;display:flex;align-items:center;gap:10px}
+.settings-header h2 i{color:var(--accent)}
+.settings-close{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px}
+.settings-close:hover{background:var(--surface2)}
+.settings-tabs{display:flex;padding:0 24px;gap:4px;border-bottom:1px solid var(--border);overflow-x:auto}
+.settings-tab{padding:14px 20px;font-size:14px;font-weight:500;color:var(--text-muted);border-bottom:2px solid transparent;white-space:nowrap}
+.settings-tab:hover{color:var(--text)}
+.settings-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.settings-content{flex:1;overflow-y:auto;padding:24px}
+.settings-section{display:none}
+.settings-section.active{display:block}
+.settings-section h4{font-size:14px;font-weight:600;margin-bottom:16px;color:var(--text-muted);display:flex;align-items:center;gap:8px}
+.settings-section h4 i{font-size:14px}
+.setting-row{margin-bottom:20px}
+.setting-row label{display:block;font-size:13px;font-weight:500;margin-bottom:8px}
+.setting-row select,.setting-row input[type="text"]{width:100%;padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:14px}
+.setting-row select:focus,.setting-row input:focus{outline:none;border-color:var(--accent)}
+.setting-row-inline{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border)}
+.setting-row-inline label{margin-bottom:0}
+.toggle-switch{width:48px;height:26px;background:var(--surface2);border-radius:13px;position:relative;cursor:pointer;transition:.2s}
+.toggle-switch::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;background:var(--text);border-radius:50%;transition:.2s}
+.toggle-switch.active{background:var(--green)}
+.toggle-switch.active::after{left:25px}
+.settings-footer{display:flex;justify-content:flex-end;gap:12px;padding:16px 24px;border-top:1px solid var(--border)}
+.btn-settings-save{padding:12px 24px;background:var(--accent);color:#fff;border-radius:10px;font-weight:600}
+.btn-settings-save:hover{background:var(--accent2)}
+
+/* CONTROL BAR (Desktop default) */
+.control-bar{
+  display:flex;align-items:center;justify-content:center;
+  padding:12px 16px;background:var(--surface);
+  border-top:1px solid var(--border);
+  gap:8px;flex-shrink:0;position:relative
+}
+.control-btn{
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+  padding:10px 16px;border-radius:12px;background:var(--surface2);
+  transition:.15s;min-width:64px
+}
+.control-btn:hover{background:var(--surface3)}
+.control-btn i{font-size:20px}
+.control-btn span{font-size:10px;color:var(--text-muted)}
+.control-btn.active{background:var(--accent)}
+.control-btn.active span{color:#fff}
+.control-btn.muted{background:var(--red)}
+.control-btn.muted span{color:#fff}
+.control-btn.danger{background:var(--red)}
+.control-btn.danger:hover{background:#dc2626}
+.control-btn.danger span{color:#fff}
+.control-divider{width:1px;height:40px;background:var(--border);margin:0 8px}
+.control-bar-left,.control-bar-right{position:absolute;display:flex;align-items:center;gap:8px}
+.control-bar-left{left:16px}
+.control-bar-right{right:16px}
+
+/* TOAST */
+.toast{
+  position:fixed;bottom:100px;left:50%;transform:translateX(-50%);
+  background:var(--surface);border:1px solid var(--border);
+  padding:14px 24px;border-radius:12px;font-size:14px;z-index:2000;
+  display:none;animation:fadeUp .3s
+}
+.toast.show{display:block}
+@keyframes fadeUp{from{opacity:0;transform:translateX(-50%) translateY(20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+
+/* MOBILE & TABLET RESPONSIVE - PORTRAIT */
+@media(max-width:1024px) and (orientation:portrait){
+  .app-container{height:auto;min-height:100vh;min-height:100dvh;overflow-y:auto}
+  /* Reserve space for fixed bottom bar (Zoom-like) */
+  .main-content{
+    flex-direction:column;overflow:visible;
+    min-height:calc(100vh - 140px);min-height:calc(100dvh - 140px);
+    padding-bottom: calc(92px + var(--nav-safe));
+  }
+
+  .video-area{flex:none;height:auto;min-height:200px}
+  .video-grid{height:auto;min-height:180px;max-height:40vh;overflow:hidden}
+  .video-grid.auto-layout{grid-template-columns:repeat(auto-fit,minmax(120px,1fr));grid-auto-rows:minmax(100px,1fr)}
+  .video-grid[data-count="1"]{max-height:35vh}
+  .video-grid[data-count="2"]{grid-template-columns:repeat(2,1fr)}
+  .video-grid[data-count="3"],.video-grid[data-count="4"]{grid-template-columns:repeat(2,1fr);grid-template-rows:repeat(2,1fr)}
+  .video-tile{min-height:80px}
+  .video-tile-name{font-size:11px}
+  .video-placeholder{width:50px;height:50px;font-size:20px}
+
+  /* Mobile Transcript Panel - Below Video Grid */
+  .transcript-panel{
+    position:relative;width:100%;height:auto;min-height:0;max-height:0;transform:none;
+    border-left:none;border-top:1px solid var(--border);
+    transition:max-height .3s ease,min-height .3s ease;overflow:hidden
+  }
+  .transcript-panel.open{max-height:55vh;min-height:45vh;flex:1}
+  .transcript-panel.expanded{max-height:70vh;min-height:60vh}
+  .transcript-header{flex-wrap:nowrap;padding:10px 12px;gap:6px}
+  .transcript-header-left h3{font-size:13px}
+  .transcript-header-left h3 span{display:none}
+  .btn-auto-tts{padding:5px 10px;font-size:11px}
+  .transcript-content{min-height:0}
+
+  /* Mobile Split View */
+  .transcript-split.active{display:flex;flex-direction:row}
+  .transcript-column{flex:1;min-width:0}
+  .transcript-column:first-child{border-right:1px solid var(--border)}
+  .transcript-column-header{padding:8px 10px;font-size:10px}
+  .transcript-column-content{padding:8px}
+  .transcript-line{margin-bottom:10px;padding-bottom:10px}
+  .transcript-line-text{font-size:12px}
+  .transcript-line-avatar{width:16px;height:16px;font-size:8px}
+  .transcript-line-name{font-size:10px}
+  .transcript-line-time{font-size:9px}
+
+  /* Mobile Unified View */
+  .transcript-unified{padding:10px}
+  .transcript-entry{padding:10px;margin-bottom:12px}
+  .transcript-entry-header{gap:8px;margin-bottom:8px}
+  .transcript-entry-avatar{width:24px;height:24px;font-size:10px}
+  .transcript-entry-name{font-size:12px}
+  .transcript-entry-time{font-size:10px}
+  .transcript-entry-original,.transcript-entry-translation{font-size:12px;padding:8px 10px}
+  .transcript-entry-actions{margin-top:8px}
+  .btn-play-entry{padding:5px 10px;font-size:10px}
+
+  /* Students Panel Mobile */
+  .students-panel{
+    position:fixed;width:100%;height:70vh;bottom:0;left:0;right:0;top:auto;
+    transform:translateY(100%);border-left:none;border-top:1px solid var(--border);
+    border-radius:20px 20px 0 0
+  }
+  .students-panel.open{transform:translateY(0)}
+
+  /* Header Mobile */
+  .top-header{padding:8px 12px}
+  .header-btn{width:36px;height:36px;font-size:14px}
+  .header-btn-badge{min-width:16px;height:16px;font-size:9px}
+
+  /* Shared Content Mobile */
+  .shared-content{position:relative;inset:0;margin:8px;border-radius:10px;max-height:35vh}
+
+  /* ===== Zoom-like Bottom Navbar (Mobile) ===== */
+  .control-bar{
+    position:fixed;
+    left:0;right:0;bottom:0;
+    z-index:250;
+    justify-content:flex-start;
+    gap:0;
+    padding:10px 10px calc(10px + var(--nav-safe));
+    background: rgba(22,22,22,.78);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    border-top:1px solid rgba(255,255,255,.10);
+
+    overflow-x:auto;
+    overflow-y:hidden;
+    flex-wrap:nowrap;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+  }
+  .control-bar::-webkit-scrollbar{display:none}
+
+  .control-bar-left,.control-bar-right{display:none}
+  .control-divider{display:none}
+
+  .control-btn{
+    background:transparent;
+    border-radius:14px;
+    min-width:78px;
+    padding:8px 10px;
+    margin:0 2px;
+  }
+  .control-btn:hover{background:rgba(255,255,255,.06)}
+  .control-btn i{font-size:22px}
+  .control-btn span{
+    display:block;
+    font-size:11px;
+    color:rgba(245,245,245,.72);
+    margin-top:6px;
+  }
+  .control-btn.active{
+    background:rgba(99,102,241,.16);
+    border:1px solid rgba(99,102,241,.22);
+  }
+  .control-btn.muted{
+    background:rgba(239,68,68,.16);
+    border:1px solid rgba(239,68,68,.28);
+  }
+  .control-btn.danger{
+    background:rgba(239,68,68,.22);
+    border:1px solid rgba(239,68,68,.35);
+  }
+
+  /* Toast higher because bar is fixed */
+  .toast{bottom: calc(110px + var(--nav-safe));}
+}
+
+/* TABLET LANDSCAPE */
+@media(min-width:768px) and (max-width:1024px) and (orientation:landscape){
+  .video-grid.auto-layout{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+  .transcript-panel{width:320px}
+  .transcript-panel.expanded{width:45vw}
+}
+
+/* SMALL PHONES */
+@media(max-width:480px){
+  .prejoin-container{border-radius:16px}
+  .prejoin-preview{padding:16px}
+  .prejoin-form{padding:20px}
+  .prejoin-form h2{font-size:20px}
+  .prejoin-video-wrapper{aspect-ratio:4/3}
+  .prejoin-toggle{width:48px;height:48px;font-size:18px}
+  .device-select-group select{padding:10px 12px;font-size:13px}
+  .device-select-group label{font-size:12px}
+  .prejoin-room-input input{padding:12px 14px;font-size:14px;letter-spacing:2px}
+  .prejoin-room-prefix{padding:12px 14px;font-size:12px}
+  .btn-primary{padding:14px 20px;font-size:14px}
+
+  .video-grid{padding:4px;gap:4px}
+  .video-tile{border-radius:8px}
+  .video-tile-bottom{padding:6px 8px}
+  .video-tile-name{font-size:10px}
+  .video-placeholder{width:40px;height:40px;font-size:16px}
+
+  .settings-modal{border-radius:16px}
+  .settings-header{padding:16px 20px}
+  .settings-header h2{font-size:18px}
+  .settings-content{padding:16px}
+  .settings-tab{padding:12px 14px;font-size:13px}
+
+  /* Zoom-like tighter buttons */
+  @media(orientation:portrait){
+    .control-btn{min-width:72px;padding:8px 8px}
+    .control-btn i{font-size:21px}
+    .control-btn span{font-size:10px}
+  }
+}
+  </style>
 </head>
 
 <body>
@@ -103,90 +734,32 @@
       </div>
     </div>
 
-    <div class="main-content layout-3col" id="mainContent">
-      <aside class="teacher-panel" id="teacherPanel">
-        <div class="teacher-video-slot">
-          <div class="video-grid pinned-view" id="videoGrid" data-count="1"></div>
-          <div class="shared-content" id="sharedContent">
-            <div class="shared-content-header">
-              <h4><i class="fas fa-desktop"></i> <span id="sharedContentTitle">Screen Share</span></h4>
-              <button class="panel-close" id="btnStopSharing"><i class="fas fa-times"></i></button>
-            </div>
-            <div class="shared-content-body" id="sharedContentBody">
-              <video id="screenShareVideo" autoplay playsinline></video>
-              <canvas id="whiteboardCanvas" width="1280" height="720"></canvas>
-            </div>
-            <div class="whiteboard-tools is-hidden" id="whiteboardTools">
-              <button class="whiteboard-tool active" data-tool="pen"><i class="fas fa-pen"></i></button>
-              <button class="whiteboard-tool" data-tool="eraser"><i class="fas fa-eraser"></i></button>
-              <button class="whiteboard-tool"><input type="color" id="whiteboardColor" value="#000000"/></button>
-              <button class="whiteboard-tool" id="btnClearBoard"><i class="fas fa-trash"></i></button>
-            </div>
-          </div>
-        </div>
-        <div class="teacher-visualizer">
-          <h4><i class="fas fa-wave-square"></i> Audio Levels</h4>
-          <div class="audio-meter">
-            <span>Mic</span>
-            <div class="meter-track"><div class="meter-fill" id="micLevelFill"></div></div>
-          </div>
-          <div class="audio-meter">
-            <span>Output</span>
-            <div class="meter-track"><div class="meter-fill" id="outLevelFill"></div></div>
-          </div>
-        </div>
-      </aside>
+    <div class="main-content">
+      <div class="video-area">
+        <div class="video-grid pinned-view" id="videoGrid" data-count="1"></div>
 
-      <section class="center-panel" id="centerPanel">
-        <div class="transcript-panel" id="transcriptPanel">
-          <div class="transcript-header">
-            <div class="transcript-header-left">
-              <h3><i class="fas fa-language"></i> Transcripts</h3>
-              <button class="btn-auto-tts" id="btnAutoTTS"><i class="fas fa-volume-up"></i><span>Auto</span><span class="queue-count" id="ttsQueueBadge">0</span></button>
-            </div>
-            <div class="transcript-header-right">
-              <div class="transcript-view-toggle"><button class="active" data-view="unified">Unified</button><button data-view="split">Split</button></div>
-              <button class="transcript-expand" id="btnExpandTranscript" title="Expand"><i class="fas fa-expand-alt"></i></button>
-              <button class="transcript-collapse" id="btnToggleCenter" title="Minimize"><i class="fas fa-minus"></i></button>
-            </div>
+        <div class="shared-content" id="sharedContent">
+          <div class="shared-content-header">
+            <h4><i class="fas fa-desktop"></i> <span id="sharedContentTitle">Screen Share</span></h4>
+            <button class="panel-close" id="btnStopSharing"><i class="fas fa-times"></i></button>
           </div>
-          <div class="transcript-tools">
-            <div class="transcript-tool">
-              <label for="transcriptMicSelect"><i class="fas fa-microphone"></i> Audio source</label>
-              <select id="transcriptMicSelect"></select>
-            </div>
-            <div class="transcript-tool">
-              <label for="sttLangSelect"><i class="fas fa-wave-square"></i> STT Source Language</label>
-              <select id="sttLangSelect"></select>
-            </div>
-            <div class="transcript-tool">
-              <label for="translationLangSelect"><i class="fas fa-language"></i> Translation Target Language</label>
-              <select id="translationLangSelect"></select>
-            </div>
+          <div class="shared-content-body" id="sharedContentBody">
+            <video id="screenShareVideo" autoplay playsinline></video>
+            <canvas id="whiteboardCanvas" width="1280" height="720"></canvas>
           </div>
-          <div class="transcript-content">
-            <div class="transcript-unified" id="transcriptUnified">
-              <div class="transcript-empty" id="transcriptEmpty"><i class="fas fa-language"></i><p>Transcripts appear here as participants speak</p></div>
-            </div>
-            <div class="transcript-split" id="transcriptSplit">
-              <div class="transcript-column"><div class="transcript-column-header">Original</div><div class="transcript-column-content" id="originalColumn"></div></div>
-              <div class="transcript-column"><div class="transcript-column-header">Translation</div><div class="transcript-column-content" id="translationColumn"></div></div>
-            </div>
+          <div class="whiteboard-tools is-hidden" id="whiteboardTools">
+            <button class="whiteboard-tool active" data-tool="pen"><i class="fas fa-pen"></i></button>
+            <button class="whiteboard-tool" data-tool="eraser"><i class="fas fa-eraser"></i></button>
+            <button class="whiteboard-tool"><input type="color" id="whiteboardColor" value="#000000"/></button>
+            <button class="whiteboard-tool" id="btnClearBoard"><i class="fas fa-trash"></i></button>
           </div>
         </div>
-      </section>
+      </div>
 
-      <aside class="students-panel" id="studentsPanel">
-        <div class="panel-header"><h3><i class="fas fa-users"></i> Participants</h3></div>
-        <div class="panel-section queue-section">
-          <div class="panel-section-title">Raise Hand Queue</div>
-          <div class="students-list" id="handQueueList"></div>
-        </div>
-        <div class="panel-section students-section">
-          <div class="panel-section-title">All Students</div>
-          <div class="students-list" id="studentsList"></div>
-        </div>
-      </aside>
+      <div class="students-panel" id="studentsPanel">
+        <div class="panel-header"><h3><i class="fas fa-users"></i> Participants</h3><button class="panel-close" id="btnCloseStudents"><i class="fas fa-times"></i></button></div>
+        <div class="students-list" id="studentsList"></div>
+      </div>
 
       <div class="chat-panel" id="chatPanel">
         <div class="panel-header"><h3><i class="fas fa-comments"></i> Group Chat</h3><button class="panel-close" id="btnCloseChat"><i class="fas fa-times"></i></button></div>
@@ -199,7 +772,28 @@
         </div>
       </div>
 
-      
+      <div class="transcript-panel" id="transcriptPanel">
+        <div class="transcript-header">
+          <div class="transcript-header-left">
+            <h3><i class="fas fa-language"></i> Transcripts</h3>
+            <button class="btn-auto-tts" id="btnAutoTTS"><i class="fas fa-volume-up"></i><span>Auto</span><span class="queue-count" id="ttsQueueBadge">0</span></button>
+          </div>
+          <div class="transcript-header-right">
+            <div class="transcript-view-toggle"><button class="active" data-view="unified">Unified</button><button data-view="split">Split</button></div>
+            <button class="transcript-expand" id="btnExpandTranscript" title="Expand"><i class="fas fa-expand-alt"></i></button>
+            <button class="panel-close" id="btnCloseTranscript"><i class="fas fa-times"></i></button>
+          </div>
+        </div>
+        <div class="transcript-content">
+          <div class="transcript-unified" id="transcriptUnified">
+            <div class="transcript-empty" id="transcriptEmpty"><i class="fas fa-language"></i><p>Transcripts appear here as participants speak</p></div>
+          </div>
+          <div class="transcript-split" id="transcriptSplit">
+            <div class="transcript-column"><div class="transcript-column-header">Original</div><div class="transcript-column-content" id="originalColumn"></div></div>
+            <div class="transcript-column"><div class="transcript-column-header">Translation</div><div class="transcript-column-content" id="translationColumn"></div></div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Zoom-like mobile bar is CSS-only; HTML unchanged -->
@@ -262,6 +856,1696 @@
 
   <div class="toast" id="toast"></div>
 
-<script src="js/app.js"></script>
+<script>
+/* =========================
+   Firebase Config
+========================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyDVw2Xt1gf52xXgx4E5TMKf2007AyQwBfQ",
+  authDomain: "impactful-ring-469323-e5.firebaseapp.com",
+  databaseURL: "https://impactful-ring-469323-e5.europe-west1.firebasedatabase.app",
+  projectId: "impactful-ring-469323-e5",
+  storageBucket: "impactful-ring-469323-e5.firebasestorage.app",
+  messagingSenderId: "316842561818",
+  appId: "1:316842561818:web:8e580f90d4c766832c5ca3"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth(), db = firebase.database();
+const $ = id => document.getElementById(id);
+
+const loadingOverlay = $('loadingOverlay');
+const loadingTitle = $('loadingTitle');
+const loadingMessage = $('loadingMessage');
+const loadingActions = $('loadingActions');
+
+function showLoading(title, message, showActions=false){
+  if(title) loadingTitle.textContent = title;
+  if(message) loadingMessage.textContent = message;
+  loadingActions.classList.toggle('is-hidden', !showActions);
+  loadingOverlay.classList.remove('hidden');
+}
+function hideLoading(){ loadingOverlay.classList.add('hidden'); }
+
+/* =========================
+   Stream Video Configuration
+========================= */
+const STREAM_API_KEY = 'pnh7nmt84ebm';
+const STREAM_SECRET_KEY = 'ycewy9r3x5597e39j7ay7q5v7fw2vsybqb65gfu2n6nrzab7vw4q63bdkyh8f3f6';
+const USER_TOKEN_EXPIRY_HOURS = 24;
+
+/* =========================
+   Voice Mapping (unchanged from your file)
+========================= */
+const UNIVERSAL_VOICE = 'a0e99841-438c-4a64-b679-ae501e7d6091';
+const VOICES = {
+  'en':'a0e99841-438c-4a64-b679-ae501e7d6091','en-US':'a0e99841-438c-4a64-b679-ae501e7d6091','en-GB':'a0e99841-438c-4a64-b679-ae501e7d6091','en-AU':'a0e99841-438c-4a64-b679-ae501e7d6091','en-CA':'a0e99841-438c-4a64-b679-ae501e7d6091',
+  'es':'846d6cb0-2301-48b6-9571-6d4e2685d80c','es-ES':'846d6cb0-2301-48b6-9571-6d4e2685d80c','es-MX':'846d6cb0-2301-48b6-9571-6d4e2685d80c','es-AR':'846d6cb0-2301-48b6-9571-6d4e2685d80c','es-CO':'846d6cb0-2301-48b6-9571-6d4e2685d80c','es-CL':'846d6cb0-2301-48b6-9571-6d4e2685d80c',
+  'fr':'a8a1eb38-5f15-4c1d-8722-7ac0f329f8f3','fr-FR':'a8a1eb38-5f15-4c1d-8722-7ac0f329f8f3','fr-CA':'a8a1eb38-5f15-4c1d-8722-7ac0f329f8f3','fr-BE':'a8a1eb38-5f15-4c1d-8722-7ac0f329f8f3','fr-CH':'a8a1eb38-5f15-4c1d-8722-7ac0f329f8f3',
+  'de':'3f6e78a8-5283-42aa-b5e7-af82e8bb310c','de-DE':'3f6e78a8-5283-42aa-b5e7-af82e8bb310c','de-AT':'3f6e78a8-5283-42aa-b5e7-af82e8bb310c','de-CH':'3f6e78a8-5283-42aa-b5e7-af82e8bb310c',
+  'it':'03496517-369a-4db1-8236-3d3ae459ddf7','it-IT':'03496517-369a-4db1-8236-3d3ae459ddf7','it-CH':'03496517-369a-4db1-8236-3d3ae459ddf7',
+  'pt':'700d1ee3-a641-4018-ba6e-899dcadc9e2b','pt-PT':'700d1ee3-a641-4018-ba6e-899dcadc9e2b','pt-BR':'700d1ee3-a641-4018-ba6e-899dcadc9e2b',
+  'nl':'daf747c6-6bc2-4083-bd59-aa94dce23f5d','nl-NL':'daf747c6-6bc2-4083-bd59-aa94dce23f5d','nl-BE':'daf747c6-6bc2-4083-bd59-aa94dce23f5d','vls':'daf747c6-6bc2-4083-bd59-aa94dce23f5d',
+  'zh':'eda5bbff-1ff1-4886-8ef1-4e69a77640a0','zh-CN':'eda5bbff-1ff1-4886-8ef1-4e69a77640a0','zh-TW':'eda5bbff-1ff1-4886-8ef1-4e69a77640a0','zh-HK':'eda5bbff-1ff1-4886-8ef1-4e69a77640a0',
+  'byv':'a8a1eb38-5f15-4c1d-8722-7ac0f329f8f3',
+  'ja':'2b568345-1d48-4047-b25f-7baccf842eb0','ja-JP':'2b568345-1d48-4047-b25f-7baccf842eb0',
+  'ko':'029c3c7a-b6d9-44fb-a9b9-e91c9c7b3a6e','ko-KR':'029c3c7a-b6d9-44fb-a9b9-e91c9c7b3a6e',
+  'ar':'cfa77df6-e0a1-4c8a-a239-7e8deb0d1cb2','ar-SA':'cfa77df6-e0a1-4c8a-a239-7e8deb0d1cb2','ar-EG':'cfa77df6-e0a1-4c8a-a239-7e8deb0d1cb2','ar-AE':'cfa77df6-e0a1-4c8a-a239-7e8deb0d1cb2','ar-MA':'cfa77df6-e0a1-4c8a-a239-7e8deb0d1cb2',
+  'hi':'4a19f17c-eedc-4cf6-b89b-3efb5c8c8a4e','hi-IN':'4a19f17c-eedc-4cf6-b89b-3efb5c8c8a4e',
+  'ru':'2d8c8d5f-6bb3-44a6-afd2-a5e05d2caca7','ru-RU':'2d8c8d5f-6bb3-44a6-afd2-a5e05d2caca7',
+  'tr':'d46abd1d-2d02-43e8-819f-51fb652c1c61','tr-TR':'d46abd1d-2d02-43e8-819f-51fb652c1c61',
+  'pl':'f9836c6e-a0bd-460e-9d3c-f7a1a84d2d4e','pl-PL':'f9836c6e-a0bd-460e-9d3c-f7a1a84d2d4e',
+  'vi':'41534e16-2966-4c6b-9670-111411def906','vi-VN':'41534e16-2966-4c6b-9670-111411def906',
+  'th':'3b554273-4299-48b9-9aaf-eefd438e3941','th-TH':'3b554273-4299-48b9-9aaf-eefd438e3941',
+  'id':'bf991597-6c13-47e4-8411-91ec2de5c466','id-ID':'bf991597-6c13-47e4-8411-91ec2de5c466',
+  'tl':'daf747c6-6bc2-4083-bd59-aa94dce23f5d','fil':'daf747c6-6bc2-4083-bd59-aa94dce23f5d','tl-PH':'daf747c6-6bc2-4083-bd59-aa94dce23f5d',
+  'sv':'daf747c6-6bc2-4083-bd59-aa94dce23f5d','sv-SE':'daf747c6-6bc2-4083-bd59-aa94dce23f5d',
+  'da':'daf747c6-6bc2-4083-bd59-aa94dce23f5d','da-DK':'daf747c6-6bc2-4083-bd59-aa94dce23f5d',
+  'no':'daf747c6-6bc2-4083-bd59-aa94dce23f5d','nb':'daf747c6-6bc2-4083-bd59-aa94dce23f5d','nn':'daf747c6-6bc2-4083-bd59-aa94dce23f5d',
+  'fi':'daf747c6-6bc2-4083-bd59-aa94dce23f5d','fi-FI':'daf747c6-6bc2-4083-bd59-aa94dce23f5d',
+  'cs':'f9836c6e-a0bd-460e-9d3c-f7a1a84d2d4e','cs-CZ':'f9836c6e-a0bd-460e-9d3c-f7a1a84d2d4e',
+  'sk':'f9836c6e-a0bd-460e-9d3c-f7a1a84d2d4e','sk-SK':'f9836c6e-a0bd-460e-9d3c-f7a1a84d2d4e',
+  'hu':'f9836c6e-a0bd-460e-9d3c-f7a1a84d2d4e','hu-HU':'f9836c6e-a0bd-460e-9d3c-f7a1a84d2d4e',
+  'ro':'03496517-369a-4db1-8236-3d3ae459ddf7','ro-RO':'03496517-369a-4db1-8236-3d3ae459ddf7',
+  'el':'03496517-369a-4db1-8236-3d3ae459ddf7','el-GR':'03496517-369a-4db1-8236-3d3ae459ddf7',
+  'bg':'2d8c8d5f-6bb3-44a6-afd2-a5e05d2caca7','bg-BG':'2d8c8d5f-6bb3-44a6-afd2-a5e05d2caca7',
+  'uk':'2d8c8d5f-6bb3-44a6-afd2-a5e05d2caca7','uk-UA':'2d8c8d5f-6bb3-44a6-afd2-a5e05d2caca7',
+  'he':'cfa77df6-e0a1-4c8a-a239-7e8deb0d1cb2','he-IL':'cfa77df6-e0a1-4c8a-a239-7e8deb0d1cb2',
+  'fa':'cfa77df6-e0a1-4c8a-a239-7e8deb0d1cb2','fa-IR':'cfa77df6-e0a1-4c8a-a239-7e8deb0d1cb2',
+  'ur':'4a19f17c-eedc-4cf6-b89b-3efb5c8c8a4e','ur-PK':'4a19f17c-eedc-4cf6-b89b-3efb5c8c8a4e',
+  'bn':'4a19f17c-eedc-4cf6-b89b-3efb5c8c8a4e','bn-BD':'4a19f17c-eedc-4cf6-b89b-3efb5c8c8a4e','bn-IN':'4a19f17c-eedc-4cf6-b89b-3efb5c8c8a4e',
+  'ta':'4a19f17c-eedc-4cf6-b89b-3efb5c8c8a4e','ta-IN':'4a19f17c-eedc-4cf6-b89b-3efb5c8c8a4e','ta-LK':'4a19f17c-eedc-4cf6-b89b-3efb5c8c8a4e',
+  'te':'4a19f17c-eedc-4cf6-b89b-3efb5c8c8a4e','te-IN':'4a19f17c-eedc-4cf6-b89b-3efb5c8c8a4e',
+  'mr':'4a19f17c-eedc-4cf6-b89b-3efb5c8c8a4e','mr-IN':'4a19f17c-eedc-4cf6-b89b-3efb5c8c8a4e',
+  'gu':'4a19f17c-eedc-4cf6-b89b-3efb5c8c8a4e','gu-IN':'4a19f17c-eedc-4cf6-b89b-3efb5c8c8a4e',
+  'kn':'4a19f17c-eedc-4cf6-b89b-3efb5c8c8a4e','kn-IN':'4a19f17c-eedc-4cf6-b89b-3efb5c8c8a4e',
+  'ml':'4a19f17c-eedc-4cf6-b89b-3efb5c8c8a4e','ml-IN':'4a19f17c-eedc-4cf6-b89b-3efb5c8c8a4e',
+  'si':'4a19f17c-eedc-4cf6-b89b-3efb5c8c8a4e','si-LK':'4a19f17c-eedc-4cf6-b89b-3efb5c8c8a4e',
+  'ms':'bf991597-6c13-47e4-8411-91ec2de5c466','ms-MY':'bf991597-6c13-47e4-8411-91ec2de5c466',
+  'my':'3b554273-4299-48b9-9aaf-eefd438e3941','my-MM':'3b554273-4299-48b9-9aaf-eefd438e3941',
+  'km':'3b554273-4299-48b9-9aaf-eefd438e3941','km-KH':'3b554273-4299-48b9-9aaf-eefd438e3941',
+  'lo':'3b554273-4299-48b9-9aaf-eefd438e3941','lo-LA':'3b554273-4299-48b9-9aaf-eefd438e3941',
+  'ka':'2d8c8d5f-6bb3-44a6-afd2-a5e05d2caca7','ka-GE':'2d8c8d5f-6bb3-44a6-afd2-a5e05d2caca7',
+  'hy':'2d8c8d5f-6bb3-44a6-afd2-a5e05d2caca7','hy-AM':'2d8c8d5f-6bb3-44a6-afd2-a5e05d2caca7',
+  'az':'d46abd1d-2d02-43e8-819f-51fb652c1c61','az-AZ':'d46abd1d-2d02-43e8-819f-51fb652c1c61',
+  'kk':'2d8c8d5f-6bb3-44a6-afd2-a5e05d2caca7','kk-KZ':'2d8c8d5f-6bb3-44a6-afd2-a5e05d2caca7',
+  'uz':'d46abd1d-2d02-43e8-819f-51fb652c1c61','uz-UZ':'d46abd1d-2d02-43e8-819f-51fb652c1c61',
+  'sw':'a0e99841-438c-4a64-b679-ae501e7d6091','sw-KE':'a0e99841-438c-4a64-b679-ae501e7d6091','sw-TZ':'a0e99841-438c-4a64-b679-ae501e7d6091',
+  'am':'cfa77df6-e0a1-4c8a-a239-7e8deb0d1cb2','am-ET':'cfa77df6-e0a1-4c8a-a239-7e8deb0d1cb2',
+  'zu':'a0e99841-438c-4a64-b679-ae501e7d6091','zu-ZA':'a0e99841-438c-4a64-b679-ae501e7d6091',
+  'af':'daf747c6-6bc2-4083-bd59-aa94dce23f5d','af-ZA':'daf747c6-6bc2-4083-bd59-aa94dce23f5d',
+  'sr':'2d8c8d5f-6bb3-44a6-afd2-a5e05d2caca7','sr-RS':'2d8c8d5f-6bb3-44a6-afd2-a5e05d2caca7',
+  'hr':'03496517-369a-4db1-8236-3d3ae459ddf7','hr-HR':'03496517-369a-4db1-8236-3d3ae459ddf7',
+  'bs':'03496517-369a-4db1-8236-3d3ae459ddf7','bs-BA':'03496517-369a-4db1-8236-3d3ae459ddf7',
+  'sl':'03496517-369a-4db1-8236-3d3ae459ddf7','sl-SI':'03496517-369a-4db1-8236-3d3ae459ddf7',
+  'mk':'2d8c8d5f-6bb3-44a6-afd2-a5e05d2caca7','mk-MK':'2d8c8d5f-6bb3-44a6-afd2-a5e05d2caca7',
+  'sq':'03496517-369a-4db1-8236-3d3ae459ddf7','sq-AL':'03496517-369a-4db1-8236-3d3ae459ddf7',
+  'et':'daf747c6-6bc2-4083-bd59-aa94dce23f5d','et-EE':'daf747c6-6bc2-4083-bd59-aa94dce23f5d',
+  'lv':'daf747c6-6bc2-4083-bd59-aa94dce23f5d','lv-LV':'daf747c6-6bc2-4083-bd59-aa94dce23f5d',
+  'lt':'f9836c6e-a0bd-460e-9d3c-f7a1a84d2d4e','lt-LT':'f9836c6e-a0bd-460e-9d3c-f7a1a84d2d4e',
+  'is':'daf747c6-6bc2-4083-bd59-aa94dce23f5d','is-IS':'daf747c6-6bc2-4083-bd59-aa94dce23f5d',
+  'mt':'03496517-369a-4db1-8236-3d3ae459ddf7','mt-MT':'03496517-369a-4db1-8236-3d3ae459ddf7',
+  'ca':'846d6cb0-2301-48b6-9571-6d4e2685d80c','ca-ES':'846d6cb0-2301-48b6-9571-6d4e2685d80c',
+  'gl':'846d6cb0-2301-48b6-9571-6d4e2685d80c','gl-ES':'846d6cb0-2301-48b6-9571-6d4e2685d80c',
+  'eu':'846d6cb0-2301-48b6-9571-6d4e2685d80c','eu-ES':'846d6cb0-2301-48b6-9571-6d4e2685d80c',
+  'cy':'a0e99841-438c-4a64-b679-ae501e7d6091','cy-GB':'a0e99841-438c-4a64-b679-ae501e7d6091',
+  'ga':'a0e99841-438c-4a64-b679-ae501e7d6091','ga-IE':'a0e99841-438c-4a64-b679-ae501e7d6091',
+  'ne':'4a19f17c-eedc-4cf6-b89b-3efb5c8c8a4e','ne-NP':'4a19f17c-eedc-4cf6-b89b-3efb5c8c8a4e',
+  'pa':'4a19f17c-eedc-4cf6-b89b-3efb5c8c8a4e','pa-IN':'4a19f17c-eedc-4cf6-b89b-3efb5c8c8a4e'
+};
+
+function getVoice(l){
+  if(VOICES[l]) return VOICES[l];
+  const base = (l||'').split('-')[0];
+  if(VOICES[base]) return VOICES[base];
+  return UNIVERSAL_VOICE;
+}
+
+/* =========================
+   State
+========================= */
+let currentUser=null,userProfile=null,currentRoom=null,roomConfig=null,userLanguage='en',languagesList=[];
+let localStream=null,screenStream=null,selectedMicId=null,selectedCamId=null,selectedSpeakerId=null;
+
+let isTranscribing=false,wsDeepgram=null,audioCtx=null,sentenceBuffer='',flushTimeout=null;
+let autoPlayTTS=false,ttsQueue=[],isPlayingTTS=false,currentAudio=null,processedIds=new Set();
+
+let participants=new Map(),pinnedUserId=null,meetingStartTime=null,meetingTimerInterval=null;
+
+let isWhiteboardActive=false,whiteboardTool='pen',whiteboardCtx=null,isDrawing=false;
+let prejoinStream=null,prejoinMicEnabled=true,prejoinCamEnabled=true;
+let mediaRecorder=null,recordedChunks=[],isRecording=false;
+
+let presenceRef=null,participantsRef=null;
+
+// Stream.io Video SDK
+let streamClient = null;
+let streamCall = null;
+let streamParticipantMap = new Map();
+
+// Quiz
+const CEREBRAS_API_KEY='csk-pprwh4v2dkey9cjx94mj3xx4wmm32rhc6yjcvwx8nfh2h2mh';
+let quizLink=null,quizTranscripts=[];
+const FLUSH_DELAY=1200;
+
+/* Teacher meta */
+let teacherUserId = null;
+let roomMetaTeacherRef = null;
+
+/* Transcript listener guard */
+let transcriptsListenerAttached = false;
+
+/* STT robustness */
+let sttSourceNode = null;
+let sttProcNode = null;
+let sttZeroGain = null;
+let sttReconnectTimer = null;
+let sttReconnectAttempt = 0;
+let sttStopRequested = false;
+
+/* =========================
+   Utils
+========================= */
+function showToast(m,d=2500){
+  const t=$('toast');
+  t.textContent=m;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),d);
+}
+function generateId(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let id='';for(let i=0;i<6;i++)id+=c.charAt(Math.floor(Math.random()*c.length));return id}
+function formatTime(s){const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;if(h>0)return`${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;return`${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`}
+
+/* =========================
+   Auth
+========================= */
+auth.onAuthStateChanged(async u=>{
+  if(u){
+    currentUser=u;
+    await loadUserProfile(u);
+    await loadLanguages();
+    hideLoading();
+    showPrejoinScreen();
+  }else{
+    showLoading('Not signed in','Redirecting you to the sign-in page...');
+    setTimeout(()=>{window.location.href='auth.html';},600);
+  }
+});
+
+if(location.protocol === 'file:'){
+  showLoading('Local file detected','Please open this app via a local web server (http://localhost) or a hosted URL. Firebase auth will not work on file://',true);
+}
+
+async function loadUserProfile(u){
+  const snap=await db.ref(`/users/${u.uid}`).once('value');
+  let p=snap.val();
+  if(!p||!p.personalId){
+    const pid=generateId();
+    p={name:u.displayName||u.email?.split('@')[0]||'User',email:u.email,personalId:pid,language:'en',createdAt:p?.createdAt||Date.now()};
+    if(u.photoURL)p.photoURL=u.photoURL;
+    await db.ref(`/users/${u.uid}`).set(p);
+  }
+  userProfile=p; userLanguage=p.language||'en';
+}
+
+/* =========================
+   Languages
+========================= */
+async function loadLanguages(){
+  try{
+    const snap=await db.ref('/languages').once('value');
+    const d=snap.val(); if(!d) return;
+    languagesList=[];
+    if(Array.isArray(d)) languagesList=d.map(l=>({code:l.code,name:l.name}));
+    else for(const[k,v] of Object.entries(d)) languagesList.push({code:v.code||k,name:v.name||v});
+    populateLangSelects();
+  }catch(e){
+    languagesList=[{code:'en',name:'English'},{code:'nl-BE',name:'Dutch (Belgium)'},{code:'fr',name:'French'},{code:'de',name:'German'},{code:'es',name:'Spanish'},{code:'tr',name:'Turkish'},{code:'tl',name:'Filipino/Tagalog'}];
+    populateLangSelects();
+  }
+}
+
+function populateLangSelects(){
+  const opts=languagesList.map(l=>`<option value="${l.code}">${l.name}</option>`).join('');
+  $('userLanguageSelect').innerHTML=opts;
+  $('settingsLanguageSelect').innerHTML=opts;
+  if(userProfile?.language){
+    $('userLanguageSelect').value=userProfile.language;
+    $('settingsLanguageSelect').value=userProfile.language;
+  }
+}
+
+/* =========================
+   Prejoin
+========================= */
+$('btnLogout').addEventListener('click',()=>auth.signOut());
+
+async function showPrejoinScreen(){
+  $('prejoinOverlay').classList.add('active');
+  const name=userProfile?.name||currentUser.displayName||'User';
+  $('prejoinName').textContent=name;
+  $('prejoinEmail').textContent=userProfile?.email||currentUser.email||'';
+  $('displayNameInput').value=name;
+  $('prejoinAvatar').textContent=name.charAt(0).toUpperCase();
+  if(userProfile?.photoURL||currentUser.photoURL) $('prejoinAvatar').innerHTML=`<img src="${userProfile?.photoURL||currentUser.photoURL}"/>`;
+  const p=new URLSearchParams(location.search);
+  if(p.get('room')) $('roomIdInput').value=p.get('room').toUpperCase();
+  await enumerateDevices();
+  await startPreviewStream();
+}
+
+$('displayNameInput').addEventListener('input',e=>{
+  const val=e.target.value.trim();
+  if(val){
+    $('prejoinName').textContent=val;
+    if(!userProfile?.photoURL && !currentUser?.photoURL){
+      $('prejoinAvatar').textContent=val.charAt(0).toUpperCase();
+    }
+  }
+});
+
+async function enumerateDevices(){
+  try{
+    const devs=await navigator.mediaDevices.enumerateDevices();
+    const mics=devs.filter(d=>d.kind==='audioinput'),
+          cams=devs.filter(d=>d.kind==='videoinput'),
+          spks=devs.filter(d=>d.kind==='audiooutput');
+
+    $('micSelect').innerHTML=mics.map((d,i)=>`<option value="${d.deviceId}">${d.label||('Microphone '+(i+1))}</option>`).join('');
+    $('camSelect').innerHTML=cams.map((d,i)=>`<option value="${d.deviceId}">${d.label||('Camera '+(i+1))}</option>`).join('');
+    $('speakerSelect').innerHTML=spks.map((d,i)=>`<option value="${d.deviceId}">${d.label||('Speaker '+(i+1))}</option>`).join('');
+
+    $('settingsMicSelect').innerHTML=$('micSelect').innerHTML;
+    $('settingsCamSelect').innerHTML=$('camSelect').innerHTML;
+    $('settingsSpeakerSelect').innerHTML=$('speakerSelect').innerHTML;
+  }catch(e){console.error('Enum devices:',e)}
+}
+
+async function startPreviewStream(){
+  try{
+    prejoinStream=await navigator.mediaDevices.getUserMedia({
+      video:$('camSelect').value?{deviceId:{exact:$('camSelect').value}}:true,
+      audio:$('micSelect').value?{deviceId:{exact:$('micSelect').value}}:true
+    });
+    $('prejoinVideo').srcObject=prejoinStream;
+    $('prejoinVideoOff').classList.add('hidden');
+    await enumerateDevices();
+  }catch(e){
+    console.error('Preview:',e);
+    $('prejoinVideoOff').classList.remove('hidden');
+  }
+}
+
+$('prejoinMicToggle').addEventListener('click',()=>{
+  prejoinMicEnabled=!prejoinMicEnabled;
+  $('prejoinMicToggle').classList.toggle('off',!prejoinMicEnabled);
+  $('prejoinMicToggle').innerHTML=`<i class="fas fa-microphone${prejoinMicEnabled?'':'-slash'}"></i>`;
+  if(prejoinStream) prejoinStream.getAudioTracks().forEach(t=>t.enabled=prejoinMicEnabled);
+});
+$('prejoinCamToggle').addEventListener('click',()=>{
+  prejoinCamEnabled=!prejoinCamEnabled;
+  $('prejoinCamToggle').classList.toggle('off',!prejoinCamEnabled);
+  $('prejoinCamToggle').innerHTML=`<i class="fas fa-video${prejoinCamEnabled?'':'-slash'}"></i>`;
+  $('prejoinVideoOff').classList.toggle('hidden',prejoinCamEnabled);
+  if(prejoinStream) prejoinStream.getVideoTracks().forEach(t=>t.enabled=prejoinCamEnabled);
+});
+
+$('micSelect').addEventListener('change',startPreviewStream);
+$('camSelect').addEventListener('change',startPreviewStream);
+$('roomIdInput').addEventListener('input',e=>{e.target.value=e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'')});
+$('btnJoinRoom').addEventListener('click',joinRoom);
+$('roomIdInput').addEventListener('keypress',e=>{if(e.key==='Enter')joinRoom()});
+
+/* =========================
+   Teacher meta helpers
+========================= */
+function getPinnedOrTeacherId(){
+  if(pinnedUserId && participants.has(pinnedUserId)) return pinnedUserId;
+  if(teacherUserId && participants.has(teacherUserId)) return teacherUserId;
+  if(currentUser?.uid && participants.has(currentUser.uid)) return currentUser.uid;
+  for(const [id] of participants) return id;
+  return null;
+}
+
+async function ensureTeacherRole(){
+  if(!currentRoom || !currentUser) return;
+  const teacherUidRef = db.ref(`/rooms/${currentRoom}/meta/teacherUid`);
+  const teacherNameRef = db.ref(`/rooms/${currentRoom}/meta/teacherName`);
+  try{
+    const res = await teacherUidRef.transaction(cur => cur || currentUser.uid);
+    teacherUserId = res?.snapshot?.val() || teacherUserId || currentUser.uid;
+    const myName = userProfile?.name || currentUser.displayName || currentUser.email?.split('@')[0] || 'Teacher';
+    await teacherNameRef.transaction(cur => cur || myName);
+  }catch(e){
+    console.warn('ensureTeacherRole failed:', e);
+  }
+}
+
+function listenToRoomMeta(){
+  if(!currentRoom) return;
+  try{ if(roomMetaTeacherRef) roomMetaTeacherRef.off(); }catch{}
+  roomMetaTeacherRef = db.ref(`/rooms/${currentRoom}/meta/teacherUid`);
+  roomMetaTeacherRef.on('value', snap=>{
+    const v = snap.val();
+    if(v) teacherUserId = v;
+    updateVideoGrid();
+    updateStudentsList();
+  });
+}
+
+async function electNewTeacherIfNeeded(leftUid){
+  if(!currentRoom || !leftUid) return;
+  if(teacherUserId !== leftUid) return;
+  try{
+    const snap = await db.ref(`/rooms/${currentRoom}/participants`).once('value');
+    const obj = snap.val() || {};
+    const arr = Object.values(obj).filter(Boolean);
+    arr.sort((a,b)=>(Number(a.joinedAt)||0)-(Number(b.joinedAt)||0));
+    const next = arr[0]?.uid;
+    const nextName = arr[0]?.name || 'Teacher';
+    if(next){
+      await db.ref(`/rooms/${currentRoom}/meta/teacherUid`).transaction(cur => (cur === leftUid ? next : cur));
+      await db.ref(`/rooms/${currentRoom}/meta/teacherName`).set(nextName);
+    }
+  }catch(e){
+    console.warn('electNewTeacherIfNeeded failed:', e);
+  }
+}
+
+/* =========================
+   Join Room
+========================= */
+async function joinRoom(){
+  const rid=$('roomIdInput').value.trim().toUpperCase();
+  if(!rid||rid.length<4){showToast('Enter valid room ID');return}
+
+  const displayName=$('displayNameInput').value.trim();
+  if(!displayName){showToast('Enter your display name');return}
+
+  userLanguage=$('userLanguageSelect').value;
+  selectedMicId=$('micSelect').value;
+  selectedCamId=$('camSelect').value;
+  selectedSpeakerId=$('speakerSelect').value;
+
+  if(displayName!==userProfile?.name){
+    await db.ref(`/users/${currentUser.uid}/name`).set(displayName);
+    userProfile.name=displayName;
+  }
+  await db.ref(`/users/${currentUser.uid}/language`).set(userLanguage);
+
+  $('btnJoinRoom').disabled=true;
+  $('btnJoinRoom').innerHTML='<i class="fas fa-spinner fa-spin"></i> Joining...';
+
+  try{
+    if(rid === 'ORBIT'){
+      currentRoom = rid;
+      roomConfig = {
+        type: 'classroom',
+        name: 'Orbit Demo Room',
+        deepgramKey: 'dd658e27599a6c7ec1cbe38e2040de6c4533a945',
+        cartesiaKey: 'sk_car_gXEk8CgTphxpLVvA1C9DZE',
+        cartesiaModelId: 'sonic-3',
+        features: { video:true, transcription:true, translation:true, quiz:true }
+      };
+    } else {
+      const snap=await db.ref(`/groups/${rid}`).once('value');
+      let cfg=snap.val();
+      if(!cfg){
+        const ps=await db.ref('/users').orderByChild('personalId').equalTo(rid).once('value');
+        if(ps.exists()){
+          const ud=Object.values(ps.val())[0];
+          cfg={type:'personal',ownerName:ud.name};
+          const dc=await db.ref('/groups/DEFAULT').once('value');
+          if(dc.val())Object.assign(cfg,dc.val());
+        } else {
+          showToast('Room not found');
+          $('btnJoinRoom').disabled=false;
+          $('btnJoinRoom').innerHTML='<i class="fas fa-sign-in-alt"></i> Join Class';
+          return;
+        }
+      }
+      currentRoom=rid;
+      roomConfig=cfg;
+    }
+
+    history.replaceState({},'',`${location.pathname}?room=${rid}`);
+
+    if(prejoinStream){prejoinStream.getTracks().forEach(t=>t.stop());prejoinStream=null}
+    $('prejoinOverlay').classList.remove('active');
+    $('appContainer').classList.add('active');
+
+    await initRoom();
+  }catch(e){
+    console.error('Join room error:', e);
+    showToast('Failed to join room: ' + e.message);
+  }
+
+  $('btnJoinRoom').disabled=false;
+  $('btnJoinRoom').innerHTML='<i class="fas fa-sign-in-alt"></i> Join Class';
+}
+
+async function initRoom(){
+  try {
+    $('displayRoomId').textContent=currentRoom;
+    $('displayUserLang').textContent=languagesList.find(l=>l.code===userLanguage)?.name||userLanguage;
+
+    meetingStartTime=Date.now();
+    meetingTimerInterval=setInterval(updateMeetingTimer,1000);
+
+    localStream=await navigator.mediaDevices.getUserMedia({
+      video: selectedCamId ? {deviceId:{exact:selectedCamId}} : true,
+      audio: {
+        deviceId: selectedMicId ? {exact:selectedMicId} : undefined,
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      }
+    });
+
+    localStream.getAudioTracks().forEach(t=>t.enabled=prejoinMicEnabled);
+    localStream.getVideoTracks().forEach(t=>t.enabled=prejoinCamEnabled);
+    if(!prejoinMicEnabled) $('btnMic').classList.add('muted');
+    if(!prejoinCamEnabled) $('btnCamera').classList.add('muted');
+
+    addParticipant({
+      id: currentUser.uid,
+      name: userProfile?.name || currentUser?.displayName || 'You',
+      stream: localStream,
+      isLocal: true,
+      micEnabled: prejoinMicEnabled,
+      camEnabled: prejoinCamEnabled,
+      photoURL: userProfile?.photoURL || currentUser.photoURL
+    });
+
+    await registerPresence();
+    listenToParticipants();
+    listenToTranscripts();
+
+    if(roomConfig?.deepgramKey){
+      startTranscription();
+    }
+
+    await initStreamVideo();
+
+    updateVideoGrid();
+    showToast('Successfully joined ' + currentRoom);
+  } catch(e) {
+    console.error('Room initialization error:', e);
+    showToast('Room setup failed: ' + e.message);
+  }
+}
+
+function updateMeetingTimer(){
+  const e=Math.floor((Date.now()-meetingStartTime)/1000);
+  const d=formatTime(e);
+  $('timerDisplay').textContent=d;
+  $('mobileTimerDisplay').textContent=d;
+}
+
+/* =========================
+   Stream Token + Video
+========================= */
+async function generateStreamToken(userId, userName) {
+  const expiresIn = USER_TOKEN_EXPIRY_HOURS * 3600;
+  const now = Math.floor(Date.now() / 1000);
+  const exp = now + expiresIn;
+  const payload = { user_id:userId, user_name:userName, exp, api_key:STREAM_API_KEY };
+  const encodedPayload = btoa(JSON.stringify(payload));
+  return `demo_${encodedPayload}`;
+}
+
+async function initStreamVideo() {
+  try {
+    if (!window.StreamVideo) {
+      showToast('Video library not loaded - using basic mode');
+      return;
+    }
+
+    const userName = userProfile?.name || currentUser?.displayName || 'User';
+    const userId = currentUser?.uid || `user_${Date.now()}`;
+    const token = await generateStreamToken(userId, userName);
+
+    streamClient = new StreamVideo({
+      apiKey: STREAM_API_KEY,
+      token,
+      user: { id:userId, name:userName, image:userProfile?.photoURL || currentUser?.photoURL || '' },
+      options: { logLevel:'info', timeout:10000 }
+    });
+
+    streamCall = streamClient.call('default', currentRoom);
+
+    streamCall.on('participant.joined', (event)=> handleStreamParticipantJoined(event.participant));
+    streamCall.on('participant.left', (event)=>{
+      const pid = event.participant?.user?.id;
+      if(pid){
+        removeParticipant(pid);
+        streamParticipantMap.delete(pid);
+      }
+    });
+    streamCall.on('participant.updated', (event)=> handleStreamParticipantUpdated(event.participant));
+    streamCall.on('track.started', (event)=> handleStreamParticipantUpdated(event.participant));
+    streamCall.on('track.stopped', (event)=> handleStreamParticipantUpdated(event.participant));
+    streamCall.on('error', (error)=> { console.error('Stream error:', error); showToast('Video connection error'); });
+
+    await streamCall.join({
+      create:true,
+      data:{ custom:{ title:`Classroom: ${currentRoom}`, description:'Real-time multilingual classroom', language:userLanguage } }
+    });
+
+    streamParticipantMap.set(currentUser.uid, streamCall.state.localParticipant);
+
+    const existingParticipants = streamCall.state.participants || [];
+    existingParticipants.forEach(p=>{
+      if(p?.user?.id && p.user.id !== currentUser.uid) handleStreamParticipantJoined(p);
+    });
+  } catch(e) {
+    console.error('Stream init error:', e);
+    showToast('Video connection established with limitations');
+  }
+}
+
+function handleStreamParticipantJoined(participant) {
+  if(!participant || participant.user.id === currentUser.uid) return;
+
+  streamParticipantMap.set(participant.user.id, participant);
+
+  const existing = participants.get(participant.user.id);
+  if(existing){
+    existing.streamParticipant = true;
+    existing.micEnabled = participant.publishedTracks?.includes('audio');
+    existing.camEnabled = participant.publishedTracks?.includes('video');
+    existing.streamParticipantData = participant;
+    existing.photoURL = participant.user.image || existing.photoURL || '';
+  }else{
+    addParticipant({
+      id: participant.user.id,
+      name: participant.user.name || 'Remote User',
+      isLocal: false,
+      streamParticipant: true,
+      micEnabled: participant.publishedTracks?.includes('audio'),
+      camEnabled: participant.publishedTracks?.includes('video'),
+      streamParticipantData: participant,
+      photoURL: participant.user.image || ''
+    });
+  }
+
+  updateVideoGrid();
+}
+
+function handleStreamParticipantUpdated(participant) {
+  if(!participant || participant.user.id === currentUser.uid) return;
+
+  streamParticipantMap.set(participant.user.id, participant);
+
+  const existing = participants.get(participant.user.id);
+  if(existing){
+    existing.micEnabled = participant.publishedTracks?.includes('audio');
+    existing.camEnabled = participant.publishedTracks?.includes('video');
+    existing.streamParticipantData = participant;
+    updateVideoGrid();
+  }
+}
+
+async function leaveStreamCall() {
+  if(streamCall){
+    try{ await streamCall.leave(); }catch(e){ console.error('leave call:', e); }
+    streamCall = null;
+  }
+  if(streamClient){
+    try{ await streamClient.disconnectUser(); }catch(e){ console.error('disconnect:', e); }
+    streamClient = null;
+  }
+  streamParticipantMap.clear();
+}
+
+/* =========================
+   Presence
+========================= */
+async function registerPresence(){
+  if(!currentRoom||!currentUser) return;
+
+  presenceRef=db.ref(`/rooms/${currentRoom}/participants/${currentUser.uid}`);
+
+  const userData={
+    uid:currentUser.uid,
+    name:userProfile?.name||currentUser.displayName||'User',
+    email:userProfile?.email||currentUser.email||'',
+    photoURL:userProfile?.photoURL||currentUser.photoURL||'',
+    language:userLanguage,
+    micEnabled:prejoinMicEnabled,
+    camEnabled:prejoinCamEnabled,
+    joinedAt:firebase.database.ServerValue.TIMESTAMP,
+    lastSeen:firebase.database.ServerValue.TIMESTAMP
+  };
+
+  await presenceRef.set(userData);
+  presenceRef.onDisconnect().remove();
+
+  setInterval(()=>{
+    if(presenceRef) presenceRef.child('lastSeen').set(firebase.database.ServerValue.TIMESTAMP);
+  },30000);
+
+  await ensureTeacherRole();
+  listenToRoomMeta();
+}
+
+function listenToParticipants(){
+  if(!currentRoom) return;
+
+  participantsRef=db.ref(`/rooms/${currentRoom}/participants`);
+
+  participantsRef.on('child_added',snap=>{
+    const p=snap.val();
+    if(!p||p.uid===currentUser.uid) return;
+    showToast(`${p.name} joined the room`);
+  });
+
+  participantsRef.on('child_removed',snap=>{
+    const p=snap.val();
+    if(!p||p.uid===currentUser.uid) return;
+    showToast(`${p.name} left the room`);
+    electNewTeacherIfNeeded(p.uid);
+  });
+
+  participantsRef.on('child_changed',snap=>{
+    const p=snap.val();
+    if(!p) return;
+    updateHandIndicator(p.uid,p.handRaised);
+  });
+
+  initChatListener();
+}
+
+function updatePresenceStatus(){
+  if(!presenceRef) return;
+  const localP=participants.get(currentUser?.uid);
+  if(localP){
+    presenceRef.update({
+      micEnabled:localP.micEnabled,
+      camEnabled:localP.camEnabled,
+      lastSeen:firebase.database.ServerValue.TIMESTAMP
+    });
+  }
+}
+
+/* =========================
+   Participants (Teacher left, Students right)
+========================= */
+function addParticipant(p){
+  participants.set(p.id,p);
+  updateVideoGrid();
+  updateStudentsList();
+}
+function removeParticipant(id){
+  participants.delete(id);
+  updateVideoGrid();
+  updateStudentsList();
+}
+
+function updateVideoGrid(){
+  const grid=$('videoGrid');
+  if(!grid) return;
+
+  grid.classList.remove('auto-layout');
+  grid.classList.add('pinned-view');
+  grid.innerHTML='';
+
+  const pinnedId = getPinnedOrTeacherId();
+
+  if(pinnedId && participants.has(pinnedId)){
+    const pinnedP = participants.get(pinnedId);
+    const pinnedTile = createVideoTile(pinnedP, pinnedId);
+    pinnedTile.classList.add('pinned');
+    grid.appendChild(pinnedTile);
+  }
+
+  const strip=document.createElement('div');
+  strip.className='video-tiles-strip';
+
+  for(const [id,p] of participants){
+    if(id===pinnedId) continue;
+    strip.appendChild(createVideoTile(p,id));
+  }
+
+  grid.appendChild(strip);
+  grid.dataset.count = Math.min(participants.size, 9);
+  $('participantCount').textContent = participants.size;
+  $('studentsBadgeMenu').textContent = participants.size;
+}
+
+function createVideoTile(p,id){
+  const t=document.createElement('div');
+  const isTeacher = (id === teacherUserId);
+
+  t.className='video-tile'+(p.isLocal?' mirror':'')+(id===pinnedUserId?' pinned':'');
+  t.dataset.id=id;
+  t.dataset.user=id;
+
+  const ini=(p.name||'U').charAt(0).toUpperCase();
+  const hasPhoto=p.photoURL;
+  const showPlaceholder=p.camEnabled===false;
+  const placeholderContent=hasPhoto
+    ? `<img src="${p.photoURL}" style="width:100%;height:100%;border-radius:50%;object-fit:cover"/>`
+    : `${ini}`;
+  const handHtml=p.handRaised?'<div class="video-tile-hand"><i class="fas fa-hand-paper"></i></div>':'';
+
+  const displayName = (p.isLocal?'You':(p.name||'User'));
+  const rolePrefix = isTeacher ? 'Teacher • ' : '';
+
+  t.innerHTML=`
+    <video autoplay ${p.isLocal?'muted':''} playsinline style="display:${p.camEnabled!==false?'block':'none'}"></video>
+    <audio autoplay></audio>
+    <div class="video-placeholder" style="display:${showPlaceholder?'flex':'none'}">${placeholderContent}</div>
+    ${handHtml}
+    <div class="video-tile-overlay">
+      <div class="video-tile-top">
+        <div class="video-tile-actions">
+          <button class="video-tile-action btn-pin ${id===pinnedUserId?'pinned':''}" title="Pin"><i class="fas fa-thumbtack"></i></button>
+          ${!p.isLocal?'<button class="video-tile-action" title="Mute"><i class="fas fa-microphone-slash"></i></button>':''}
+        </div>
+        <div class="video-tile-status">
+          ${p.micEnabled===false?'<span class="muted"><i class="fas fa-microphone-slash"></i></span>':''}
+        </div>
+      </div>
+      <div class="video-tile-bottom">
+        <div class="video-tile-name">
+          <span class="speaking" style="display:none"></span>
+          <span>${rolePrefix}${displayName}</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const v=t.querySelector('video');
+  const a=t.querySelector('audio');
+
+  if(p.isLocal){
+    if(p.stream){
+      v.srcObject=p.stream;
+      v.play().catch(()=>{});
+    }
+  }else if(p.streamParticipant && streamCall){
+    try{
+      const participant = p.streamParticipantData;
+      if(participant){
+        const videoTrack = participant.videoTrack;
+        const audioTrack = participant.audioTrack;
+
+        if(videoTrack){
+          v.srcObject = new MediaStream([videoTrack]);
+          v.style.display = 'block';
+          t.querySelector('.video-placeholder').style.display = 'none';
+          v.play().catch(()=>{});
+        }else{
+          v.style.display = 'none';
+          t.querySelector('.video-placeholder').style.display = 'flex';
+        }
+
+        if(audioTrack){
+          a.srcObject = new MediaStream([audioTrack]);
+          a.play().catch(()=>{});
+        }
+      }
+    }catch(e){
+      console.error('Stream tile attach error:', e);
+    }
+  }
+
+  t.querySelector('.btn-pin').addEventListener('click',()=>{
+    pinnedUserId = (pinnedUserId===id ? null : id);
+    updateVideoGrid();
+  });
+
+  return t;
+}
+
+function updateStudentsList(){
+  const list=$('studentsList');
+  if(!list) return;
+  list.innerHTML='';
+
+  const ordered=[];
+  if(teacherUserId && participants.has(teacherUserId)){
+    ordered.push([teacherUserId, participants.get(teacherUserId)]);
+  }
+  for(const [id,p] of participants){
+    if(id===teacherUserId) continue;
+    ordered.push([id,p]);
+  }
+
+  for(const [id,p] of ordered){
+    const ini=(p.name||'U').charAt(0).toUpperCase();
+    const avatarContent=p.photoURL
+      ? `<img src="${p.photoURL}" style="width:100%;height:100%;border-radius:50%;object-fit:cover"/>`
+      : `${ini}`;
+
+    const isTeacher = (id === teacherUserId);
+    const roleTag = isTeacher
+      ? `<span style="margin-left:8px;font-size:10px;padding:2px 8px;border-radius:999px;background:rgba(99,102,241,.18);color:var(--accent);border:1px solid rgba(99,102,241,.22)">TEACHER</span>`
+      : '';
+
+    const item=document.createElement('div');
+    item.className='student-item';
+    item.innerHTML=`
+      <div class="student-avatar">${avatarContent}</div>
+      <div class="student-info">
+        <h5>${p.isLocal?'You':p.name}${roleTag}</h5>
+        <p><i class="fas fa-circle online"></i> Online</p>
+      </div>
+      <div class="student-actions">
+        <button class="student-action ${p.micEnabled===false?'muted':''}">
+          <i class="fas fa-microphone${p.micEnabled===false?'-slash':''}"></i>
+        </button>
+        <button class="student-action" title="Pin" data-pin="${id}">
+          <i class="fas fa-thumbtack"></i>
+        </button>
+      </div>
+    `;
+    item.querySelector('[data-pin]')?.addEventListener('click',()=>{
+      pinnedUserId = (pinnedUserId===id ? null : id);
+      updateVideoGrid();
+    });
+    list.appendChild(item);
+  }
+}
+
+/* =========================
+   STT (Robust Deepgram)
+========================= */
+function cleanupSttNodes(){
+  try{ sttProcNode?.disconnect(); }catch{}
+  try{ sttSourceNode?.disconnect(); }catch{}
+  try{ sttZeroGain?.disconnect(); }catch{}
+  sttProcNode = null;
+  sttSourceNode = null;
+  sttZeroGain = null;
+}
+
+function scheduleSttReconnect(reason){
+  if(sttStopRequested) return;
+  if(!roomConfig?.deepgramKey) return;
+  if(sttReconnectTimer) return;
+
+  const base = 900;
+  const delay = Math.min(30000, base * Math.pow(2, sttReconnectAttempt));
+  sttReconnectAttempt = Math.min(sttReconnectAttempt + 1, 6);
+
+  sttReconnectTimer = setTimeout(()=>{
+    sttReconnectTimer = null;
+    if(!sttStopRequested && !isTranscribing){
+      console.log('STT reconnect:', reason, 'attempt:', sttReconnectAttempt);
+      startTranscription();
+    }
+  }, delay);
+}
+
+function startTranscription(){
+  if(isTranscribing) return;
+  if(!roomConfig?.deepgramKey) return;
+  if(!localStream) return;
+
+  const audioTrack = localStream.getAudioTracks?.()[0];
+  if(!audioTrack){
+    showToast('No microphone available for transcription');
+    return;
+  }
+
+  sttStopRequested = false;
+  isTranscribing = true;
+  $('btnTranscribe')?.classList.add('active');
+  sentenceBuffer = '';
+
+  const dgUrl =
+    'wss://api.deepgram.com/v1/listen' +
+    '?endpointing=false' +
+    '&interim_results=true' +
+    '&punctuate=true' +
+    '&smart_format=true' +
+    '&vad_events=true' +
+    '&language=multi' +
+    '&model=nova-3' +
+    '&encoding=linear16' +
+    '&sample_rate=16000';
+
+  try{
+    wsDeepgram = new WebSocket(dgUrl, ['token', roomConfig.deepgramKey]);
+  }catch(e){
+    console.error('STT WS create failed:', e);
+    isTranscribing = false;
+    $('btnTranscribe')?.classList.remove('active');
+    scheduleSttReconnect('ws-create-failed');
+    return;
+  }
+
+  wsDeepgram.binaryType = 'arraybuffer';
+
+  wsDeepgram.onopen = async ()=>{
+    sttReconnectAttempt = 0;
+    try{
+      await setupAudioPipeline();
+    }catch(e){
+      console.error('Audio pipeline failed:', e);
+      stopTranscription(true);
+      scheduleSttReconnect('pipeline-failed');
+    }
+  };
+
+  wsDeepgram.onmessage = handleTranscript;
+
+  wsDeepgram.onerror = (e)=>{
+    console.error('STT socket error:', e);
+  };
+
+  wsDeepgram.onclose = ()=>{
+    isTranscribing = false;
+    $('btnTranscribe')?.classList.remove('active');
+    cleanupSttNodes();
+    try{ audioCtx?.close(); }catch{}
+    audioCtx = null;
+
+    if(!sttStopRequested) scheduleSttReconnect('ws-closed');
+  };
+}
+
+function stopTranscription(noFlush=false){
+  sttStopRequested = true;
+
+  isTranscribing = false;
+  $('btnTranscribe')?.classList.remove('active');
+
+  if(sttReconnectTimer){ clearTimeout(sttReconnectTimer); sttReconnectTimer=null; }
+
+  if(flushTimeout){ clearTimeout(flushTimeout); flushTimeout=null; }
+
+  if(!noFlush && sentenceBuffer){
+    sendTranscript(sentenceBuffer).catch(()=>{});
+    sentenceBuffer='';
+  }
+
+  try{ wsDeepgram?.close(); }catch{}
+  wsDeepgram=null;
+
+  cleanupSttNodes();
+
+  try{ audioCtx?.close(); }catch{}
+  audioCtx=null;
+}
+
+async function setupAudioPipeline(){
+  if(!localStream) throw new Error('no-localStream');
+  const track = localStream.getAudioTracks?.()[0];
+  if(!track) throw new Error('no-audioTrack');
+
+  audioCtx = new (window.AudioContext||window.webkitAudioContext)({latencyHint:'interactive'});
+  await audioCtx.resume().catch(()=>{});
+
+  const isolatedStream = new MediaStream([track]);
+  sttSourceNode = audioCtx.createMediaStreamSource(isolatedStream);
+  sttProcNode = audioCtx.createScriptProcessor(2048,1,1);
+
+  sttZeroGain = audioCtx.createGain();
+  sttZeroGain.gain.value = 0;
+
+  sttSourceNode.connect(sttProcNode);
+  sttProcNode.connect(sttZeroGain);
+  sttZeroGain.connect(audioCtx.destination);
+
+  sttProcNode.onaudioprocess = (e)=>{
+    if(!wsDeepgram || wsDeepgram.readyState!==1) return;
+    if(sttStopRequested) return;
+    const f32 = e.inputBuffer.getChannelData(0);
+    const pcm16 = downsample(f32, audioCtx.sampleRate, 16000);
+    wsDeepgram.send(pcm16.buffer);
+  };
+}
+
+function downsample(f32, inR, outR){
+  if(outR === inR){
+    const out = new Int16Array(f32.length);
+    for(let i=0;i<f32.length;i++){
+      const s = Math.max(-1, Math.min(1, f32[i]));
+      out[i] = s < 0 ? s*0x8000 : s*0x7FFF;
+    }
+    return out;
+  }
+  const ratio = inR / outR;
+  const newLen = Math.floor(f32.length / ratio);
+  const out = new Int16Array(newLen);
+  for(let i=0;i<newLen;i++){
+    const idx = Math.floor(i * ratio);
+    const s = Math.max(-1, Math.min(1, f32[idx]));
+    out[i] = s < 0 ? s*0x8000 : s*0x7FFF;
+  }
+  return out;
+}
+
+function handleTranscript(e){
+  let d;
+  try{ d = JSON.parse(e.data); }catch{ return; }
+  const alt = d.channel?.alternatives?.[0];
+  const tr = (alt?.transcript || '').trim();
+  if(!tr) return;
+
+  const isFinal = Boolean(d.is_final || d.speech_final);
+  if(!isFinal) return;
+
+  sentenceBuffer = (sentenceBuffer ? (sentenceBuffer + ' ' + tr) : tr).replace(/\s+/g,' ').trim();
+
+  if(flushTimeout) clearTimeout(flushTimeout);
+
+  const fastFlush = Boolean(d.speech_final || d.type === 'UtteranceEnd');
+  const delay = fastFlush ? 300 : FLUSH_DELAY;
+
+  flushTimeout = setTimeout(()=>{
+    if(sentenceBuffer){
+      sendTranscript(sentenceBuffer).catch(()=>{});
+      sentenceBuffer = '';
+    }
+  }, delay);
+}
+
+/* Push IDs prevent collisions when many users speak at once */
+async function sendTranscript(txt){
+  const clean = (txt||'').trim();
+  if(!clean) return;
+
+  const ref = db.ref(`/transcripts/${currentRoom}`).push();
+  const eid = ref.key;
+
+  const transcriptData={
+    id:eid,
+    userId:currentUser.uid,
+    userName:userProfile?.name||'User',
+    originalText:clean,
+    originalLang:'auto',
+    timestamp:Date.now()
+  };
+
+  await ref.set(transcriptData);
+
+  quizTranscripts.push(transcriptData);
+  if(quizTranscripts.length>50) quizTranscripts.shift();
+}
+
+function resetTranscriptUI(){
+  processedIds = new Set();
+  quizTranscripts = [];
+  const unified = $('transcriptUnified');
+  const orig = $('originalColumn');
+  const tran = $('translationColumn');
+  if(unified){
+    unified.innerHTML = `<div class="transcript-empty" id="transcriptEmpty">
+      <i class="fas fa-language"></i>
+      <p>Transcripts appear here as participants speak</p>
+    </div>`;
+  }
+  if(orig) orig.innerHTML = '';
+  if(tran) tran.innerHTML = '';
+}
+
+function listenToTranscripts(){
+  if(transcriptsListenerAttached) return;
+  transcriptsListenerAttached = true;
+
+  resetTranscriptUI();
+
+  db.ref(`/transcripts/${currentRoom}`)
+    .orderByChild('timestamp')
+    .limitToLast(200)
+    .on('child_added', async snap=>{
+      const e = snap.val();
+      if(!e) return;
+      if(!e.id) e.id = snap.key;
+
+      let tran = e.originalText;
+      try{ tran = await googleTranslate(e.originalText,'auto',userLanguage); }
+      catch(x){ console.error('Translate error:', x); }
+
+      addTranscriptEntry({...e, translation: tran});
+    });
+}
+
+/* =========================
+   Translation + Transcript UI + TTS (kept as your logic)
+========================= */
+async function googleTranslate(t,sl='auto',tl='en'){
+  const q=encodeURIComponent(t);
+  const r=await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=${tl}&dt=t&q=${q}`);
+  if(!r.ok) throw new Error(`Trans ${r.status}`);
+  const d=await r.json();
+  return (d?.[0]||[]).filter(x=>Array.isArray(x)&&typeof x[0]==='string').map(x=>x[0]).join('').trim();
+}
+
+function addTranscriptEntry(e){
+  const isNew=!processedIds.has(e.id);
+  processedIds.add(e.id);
+
+  if(isNew){
+    quizTranscripts.push(e);
+    if(quizTranscripts.length>50) quizTranscripts.shift();
+    const qBtn=$('btnQuiz');
+    if(quizTranscripts.length>=3){
+      qBtn.classList.add('ready');
+      qBtn.title=`Generate Quiz (${quizTranscripts.length} transcripts)`;
+    }
+  }
+
+  const isSelf=e.userId===currentUser?.uid;
+  const ini=(e.userName||'U').charAt(0).toUpperCase();
+  const time=new Date(e.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+
+  const empty=$('transcriptEmpty');
+  if(empty) empty.remove();
+
+  const unified=$('transcriptUnified');
+  const el=document.createElement('div');
+  el.className='transcript-entry';
+  el.dataset.id=e.id;
+  el.innerHTML=`
+    <div class="transcript-entry-header">
+      <div class="transcript-entry-avatar">${ini}</div>
+      <span class="transcript-entry-name">${isSelf?'You':e.userName}</span>
+      <span class="transcript-entry-time">${time}</span>
+    </div>
+    <div class="transcript-entry-original">${e.originalText}</div>
+    <div class="transcript-entry-translation">${e.translation}</div>
+    <div class="transcript-entry-actions">
+      <button class="btn-play-entry" data-text="${encodeURIComponent(e.translation)}"><i class="fas fa-volume-up"></i> Play</button>
+    </div>
+  `;
+  unified.appendChild(el);
+  unified.scrollTop=unified.scrollHeight;
+
+  const origCol=$('originalColumn'),transCol=$('translationColumn');
+
+  const ol=document.createElement('div');
+  ol.className='transcript-line';
+  ol.innerHTML=`
+    <div class="transcript-line-header">
+      <div class="transcript-line-avatar">${ini}</div>
+      <span class="transcript-line-name">${isSelf?'You':e.userName}</span>
+      <span class="transcript-line-time">${time}</span>
+    </div>
+    <div class="transcript-line-text">${e.originalText}</div>
+  `;
+  origCol.appendChild(ol);
+  origCol.scrollTop=origCol.scrollHeight;
+
+  const tl=document.createElement('div');
+  tl.className='transcript-line';
+  tl.innerHTML=`
+    <div class="transcript-line-header">
+      <div class="transcript-line-avatar">${ini}</div>
+      <span class="transcript-line-name">${isSelf?'You':e.userName}</span>
+      <span class="transcript-line-time">${time}</span>
+    </div>
+    <div class="transcript-line-text">${e.translation}</div>
+  `;
+  transCol.appendChild(tl);
+  transCol.scrollTop=transCol.scrollHeight;
+
+  if(autoPlayTTS && isNew) queueTTS({id:e.id,text:e.translation,lang:userLanguage});
+}
+
+function toggleAutoTTS(){
+  autoPlayTTS=!autoPlayTTS;
+  $('btnAutoTTS').classList.toggle('active',autoPlayTTS);
+  $('btnAutoTTSMenu').classList.toggle('active',autoPlayTTS);
+  $('toggleAutoTTS').classList.toggle('active',autoPlayTTS);
+  if(autoPlayTTS) showToast('Auto-play enabled');
+  else { ttsQueue=[]; updateQueueBadge(); }
+}
+$('btnAutoTTS').addEventListener('click',toggleAutoTTS);
+$('btnAutoTTSMenu').addEventListener('click',()=>{toggleAutoTTS();$('headerMenu').classList.remove('active')});
+$('toggleAutoTTS').addEventListener('click',toggleAutoTTS);
+
+function queueTTS(i){ ttsQueue.push(i); updateQueueBadge(); processTTSQueue(); }
+function updateQueueBadge(){ const b=$('ttsQueueBadge'); b.textContent=ttsQueue.length; b.classList.toggle('show',ttsQueue.length>0); }
+
+async function processTTSQueue(){
+  if(isPlayingTTS||ttsQueue.length===0) return;
+  isPlayingTTS=true;
+  const i=ttsQueue.shift();
+  updateQueueBadge();
+  const btn=document.querySelector(`.transcript-entry[data-id="${i.id}"] .btn-play-entry`);
+  if(btn) btn.classList.add('playing');
+  try{ await playTTSAudio(i.text,i.lang); }catch(e){ console.error('TTS:',e); }
+  if(btn) btn.classList.remove('playing');
+  isPlayingTTS=false;
+  if(ttsQueue.length>0) processTTSQueue();
+}
+
+async function playTTSAudio(txt,lang){
+  return new Promise(async(res,rej)=>{
+    const vid=getVoice(lang);
+    try{
+      const r=await fetch('https://api.cartesia.ai/tts/bytes',{
+        method:'POST',
+        headers:{
+          'Cartesia-Version':'2025-04-16',
+          'X-API-Key':roomConfig.cartesiaKey,
+          'Content-Type':'application/json'
+        },
+        body:JSON.stringify({
+          transcript:txt,
+          model_id:roomConfig.cartesiaModelId||'sonic-3',
+          voice:{mode:'id',id:vid},
+          output_format:{container:'wav',encoding:'pcm_f32le',sample_rate:44100}
+        })
+      });
+      if(!r.ok) throw new Error(`TTS ${r.status}`);
+      const blob=await r.blob(), url=URL.createObjectURL(blob);
+      if(currentAudio){ currentAudio.pause(); currentAudio=null; }
+      const a=new Audio(url); currentAudio=a;
+      if(selectedSpeakerId && a.setSinkId) try{ await a.setSinkId(selectedSpeakerId); }catch{}
+      a.onended=()=>{ currentAudio=null; URL.revokeObjectURL(url); res(); };
+      a.onerror=(e)=>{ currentAudio=null; URL.revokeObjectURL(url); rej(e); };
+      await a.play();
+    }catch(e){ rej(e); }
+  });
+}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('.btn-play-entry');
+  if(b){
+    const t=decodeURIComponent(b.dataset.text);
+    b.classList.add('playing');
+    playTTSAudio(t,userLanguage).finally(()=>b.classList.remove('playing'));
+  }
+});
+
+/* =========================
+   Chat
+========================= */
+let unreadChatCount=0;
+function updateChatBadge(){
+  const b=$('chatBadgeMenu');
+  if(unreadChatCount>0){ b.textContent=unreadChatCount; b.style.display='inline'; }
+  else{ b.style.display='none'; }
+}
+$('btnSendChat').addEventListener('click',sendChatMessage);
+$('chatInput').addEventListener('keypress',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChatMessage()}});
+
+function sendChatMessage(){
+  const input=$('chatInput');
+  const msg=input.value.trim();
+  if(!msg||!currentRoom) return;
+  db.ref(`/chats/${currentRoom}`).push({
+    userId:currentUser.uid,
+    name:currentUser.displayName||userProfile?.name||'User',
+    message:msg,
+    timestamp:Date.now()
+  });
+  input.value='';
+}
+function escapeHtml(t){ const d=document.createElement('div'); d.textContent=t; return d.innerHTML; }
+
+function initChatListener(){
+  if(!currentRoom) return;
+  db.ref(`/chats/${currentRoom}`).orderByChild('timestamp').limitToLast(100).on('child_added',snap=>{
+    const m=snap.val(); if(!m) return;
+    $('chatEmpty').style.display='none';
+    const div=document.createElement('div');
+    div.className='chat-message '+(m.userId===currentUser.uid?'sent':'received');
+    const time=new Date(m.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    div.innerHTML=m.userId!==currentUser.uid
+      ? `<div class="chat-message-header"><span class="sender">${escapeHtml(m.name||'User')}</span><span class="time">${time}</span></div>${escapeHtml(m.message)}`
+      : `${escapeHtml(m.message)}`;
+    $('chatMessages').appendChild(div);
+    $('chatMessages').scrollTop=$('chatMessages').scrollHeight;
+    if(m.userId!==currentUser.uid && !$('chatPanel').classList.contains('open')){
+      unreadChatCount++; updateChatBadge();
+    }
+  });
+}
+
+/* =========================
+   Raise Hand
+========================= */
+let handRaised=false;
+$('btnRaiseHand').addEventListener('click',()=>{
+  handRaised=!handRaised;
+  $('btnRaiseHand').classList.toggle('hand-raised',handRaised);
+  if(currentRoom&&currentUser){
+    db.ref(`/rooms/${currentRoom}/participants/${currentUser.uid}/handRaised`).set(handRaised);
+  }
+  showToast(handRaised?'Hand raised':'Hand lowered');
+});
+
+function updateHandIndicator(userId,raised){
+  const tile=document.querySelector(`.video-tile[data-user="${userId}"]`);
+  if(!tile) return;
+  let indicator=tile.querySelector('.video-tile-hand');
+  if(raised&&!indicator){
+    indicator=document.createElement('div');
+    indicator.className='video-tile-hand';
+    indicator.innerHTML='<i class="fas fa-hand-paper"></i>';
+    tile.appendChild(indicator);
+  }else if(!raised&&indicator){
+    indicator.remove();
+  }
+}
+
+/* =========================
+   Panels + Controls
+========================= */
+function isMobileOrTablet(){return window.innerWidth <= 1024 && window.matchMedia('(orientation: portrait)').matches}
+
+$('btnStudentsMenu').addEventListener('click',()=>{
+  $('studentsPanel').classList.toggle('open');
+  $('transcriptPanel').classList.remove('open');
+  $('chatPanel').classList.remove('open');
+  $('headerMenu').classList.remove('active');
+});
+$('btnCloseStudents').addEventListener('click',()=> $('studentsPanel').classList.remove('open'));
+
+$('btnChat').addEventListener('click',()=>{
+  $('chatPanel').classList.toggle('open');
+  $('studentsPanel').classList.remove('open');
+  $('transcriptPanel').classList.remove('open');
+  unreadChatCount=0;
+  updateChatBadge();
+});
+$('btnChatMenu').addEventListener('click',()=>{
+  $('chatPanel').classList.toggle('open');
+  $('studentsPanel').classList.remove('open');
+  $('transcriptPanel').classList.remove('open');
+  $('headerMenu').classList.remove('active');
+  unreadChatCount=0;
+  updateChatBadge();
+});
+$('btnCloseChat').addEventListener('click',()=> $('chatPanel').classList.remove('open'));
+
+$('btnTranscript').addEventListener('click',()=>{
+  const panel=$('transcriptPanel');
+  const isOpening=!panel.classList.contains('open');
+  panel.classList.toggle('open');
+  $('studentsPanel').classList.remove('open');
+  if(isOpening && isMobileOrTablet()){
+    document.querySelectorAll('.transcript-view-toggle button').forEach(x=>x.classList.remove('active'));
+    document.querySelector('.transcript-view-toggle button[data-view="split"]').classList.add('active');
+    $('transcriptUnified').classList.add('hidden');
+    $('transcriptSplit').classList.add('active');
+  }
+});
+
+$('btnTranscribe').addEventListener('click',()=>{
+  if(isMobileOrTablet()){
+    const panel=$('transcriptPanel');
+    if(!panel.classList.contains('open')){
+      panel.classList.add('open');
+      document.querySelectorAll('.transcript-view-toggle button').forEach(x=>x.classList.remove('active'));
+      document.querySelector('.transcript-view-toggle button[data-view="split"]').classList.add('active');
+      $('transcriptUnified').classList.add('hidden');
+      $('transcriptSplit').classList.add('active');
+    }
+  }
+  if(isTranscribing) stopTranscription(); else startTranscription();
+},{capture:true});
+
+$('btnCloseTranscript').addEventListener('click',()=> $('transcriptPanel').classList.remove('open'));
+$('btnExpandTranscript').addEventListener('click',()=>{
+  $('transcriptPanel').classList.toggle('expanded');
+  $('btnExpandTranscript').innerHTML=`<i class="fas fa-${$('transcriptPanel').classList.contains('expanded')?'compress':'expand'}-alt"></i>`;
+});
+document.querySelectorAll('.transcript-view-toggle button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.transcript-view-toggle button').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  if(b.dataset.view==='unified'){
+    $('transcriptUnified').classList.remove('hidden');
+    $('transcriptSplit').classList.remove('active');
+  }else{
+    $('transcriptUnified').classList.add('hidden');
+    $('transcriptSplit').classList.add('active');
+  }
+}));
+
+$('btnHeaderMenu').addEventListener('click',e=>{e.stopPropagation();$('headerMenu').classList.toggle('active')});
+document.addEventListener('click',e=>{if(!e.target.closest('.header-menu-container'))$('headerMenu').classList.remove('active')});
+
+$('btnPiPMenu').addEventListener('click',async()=>{
+  $('headerMenu').classList.remove('active');
+  const vids=document.querySelectorAll('.video-tile video');
+  if(vids.length>0 && document.pictureInPictureEnabled){
+    try{ await vids[0].requestPictureInPicture(); showToast('Picture-in-Picture enabled'); }catch{ showToast('PiP not available'); }
+  }
+});
+
+/* Settings */
+$('btnSettingsMenu').addEventListener('click',()=>{$('settingsOverlay').classList.add('open');$('headerMenu').classList.remove('active')});
+$('btnCloseSettings').addEventListener('click',()=> $('settingsOverlay').classList.remove('open'));
+document.querySelectorAll('.settings-tab').forEach(t=>t.addEventListener('click',()=>{
+  document.querySelectorAll('.settings-tab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.settings-section').forEach(s=>s.classList.remove('active'));
+  t.classList.add('active');
+  document.querySelector(`.settings-section[data-section="${t.dataset.tab}"]`).classList.add('active');
+}));
+document.querySelectorAll('.toggle-switch').forEach(t=>{
+  if(t.id==='toggleAutoTTS') return;
+  t.addEventListener('click',()=>t.classList.toggle('active'));
+});
+$('btnSaveSettings').addEventListener('click',async()=>{
+  userLanguage=$('settingsLanguageSelect').value;
+  await db.ref(`/users/${currentUser.uid}/language`).set(userLanguage);
+  $('displayUserLang').textContent=languagesList.find(l=>l.code===userLanguage)?.name||userLanguage;
+
+  const nm=$('settingsMicSelect').value, nc=$('settingsCamSelect').value;
+  selectedSpeakerId=$('settingsSpeakerSelect').value;
+
+  if(nm!==selectedMicId || nc!==selectedCamId){
+    selectedMicId=nm; selectedCamId=nc;
+    if(localStream){
+      localStream.getTracks().forEach(t=>t.stop());
+      try{
+        localStream=await navigator.mediaDevices.getUserMedia({
+          video:selectedCamId?{deviceId:{exact:selectedCamId}}:true,
+          audio:{
+            deviceId:selectedMicId?{exact:selectedMicId}:undefined,
+            echoCancellation:$('toggleEcho').classList.contains('active'),
+            noiseSuppression:$('toggleNoise').classList.contains('active'),
+            autoGainControl:$('toggleGain').classList.contains('active')
+          }
+        });
+        const p=participants.get(currentUser.uid);
+        if(p){ p.stream=localStream; updateVideoGrid(); }
+        if(isTranscribing){ stopTranscription(true); startTranscription(); }
+      }catch(e){ console.error('Device switch error:', e); }
+    }
+  }
+
+  $('settingsOverlay').classList.remove('open');
+  showToast('Settings saved');
+});
+
+/* Mic/Cam controls */
+$('btnMic').addEventListener('click',()=>{
+  if(!localStream) return;
+  const t=localStream.getAudioTracks()[0];
+  if(!t) return;
+  t.enabled=!t.enabled;
+  $('btnMic').classList.toggle('muted',!t.enabled);
+  $('btnMic').querySelector('i').className=`fas fa-microphone${t.enabled?'':'-slash'}`;
+  const p=participants.get(currentUser.uid);
+  if(p){ p.micEnabled=t.enabled; updateVideoGrid(); updateStudentsList(); updatePresenceStatus(); }
+  if(streamCall){
+    try{ t.enabled ? streamCall.microphone.enable() : streamCall.microphone.disable(); }catch{}
+  }
+});
+
+$('btnCamera').addEventListener('click',()=>{
+  if(!localStream) return;
+  const t=localStream.getVideoTracks()[0];
+  if(!t) return;
+  t.enabled=!t.enabled;
+  $('btnCamera').classList.toggle('muted',!t.enabled);
+  $('btnCamera').querySelector('i').className=`fas fa-video${t.enabled?'':'-slash'}`;
+  const p=participants.get(currentUser.uid);
+  if(p){ p.camEnabled=t.enabled; updateVideoGrid(); updatePresenceStatus(); }
+  if(streamCall){
+    try{ t.enabled ? streamCall.camera.enable() : streamCall.camera.disable(); }catch{}
+  }
+});
+
+/* Screen share + whiteboard (your logic kept) */
+$('btnScreenShare').addEventListener('click',async()=>{
+  if(screenStream){
+    screenStream.getTracks().forEach(t=>t.stop());
+    screenStream=null;
+    $('sharedContent').classList.remove('active');
+    $('btnScreenShare').classList.remove('active');
+    return;
+  }
+  try{
+    screenStream=await navigator.mediaDevices.getDisplayMedia({video:true});
+    $('screenShareVideo').srcObject=screenStream;
+    $('whiteboardCanvas').style.display='none';
+    $('screenShareVideo').style.display='block';
+    $('whiteboardTools').style.display='none';
+    $('sharedContentTitle').textContent='Screen Share';
+    $('sharedContent').classList.add('active');
+    $('btnScreenShare').classList.add('active');
+    screenStream.getVideoTracks()[0].onended=()=>{
+      screenStream=null;
+      $('sharedContent').classList.remove('active');
+      $('btnScreenShare').classList.remove('active');
+    };
+  }catch(e){ console.error('Screen:',e); }
+});
+
+$('btnWhiteboard').addEventListener('click',()=>{
+  isWhiteboardActive=!isWhiteboardActive;
+  $('btnWhiteboard').classList.toggle('active',isWhiteboardActive);
+  if(isWhiteboardActive){
+    $('screenShareVideo').style.display='none';
+    $('whiteboardCanvas').style.display='block';
+    $('whiteboardTools').style.display='flex';
+    $('sharedContentTitle').textContent='Whiteboard';
+    $('sharedContent').classList.add('active');
+    initWhiteboard();
+  }else{
+    $('sharedContent').classList.remove('active');
+  }
+});
+$('btnStopSharing').addEventListener('click',()=>{
+  if(screenStream){ screenStream.getTracks().forEach(t=>t.stop()); screenStream=null; }
+  isWhiteboardActive=false;
+  $('sharedContent').classList.remove('active');
+  $('btnScreenShare').classList.remove('active');
+  $('btnWhiteboard').classList.remove('active');
+});
+
+function initWhiteboard(){
+  const c=$('whiteboardCanvas');
+  whiteboardCtx=c.getContext('2d');
+  whiteboardCtx.fillStyle='#fff';
+  whiteboardCtx.fillRect(0,0,c.width,c.height);
+  whiteboardCtx.lineCap='round';
+  whiteboardCtx.lineJoin='round';
+  whiteboardCtx.lineWidth=3;
+  whiteboardCtx.strokeStyle='#000';
+
+  c.onmousedown=c.ontouchstart=e=>{
+    isDrawing=true;
+    const r=c.getBoundingClientRect();
+    const x=(e.touches?e.touches[0].clientX:e.clientX)-r.left;
+    const y=(e.touches?e.touches[0].clientY:e.clientY)-r.top;
+    whiteboardCtx.beginPath();
+    whiteboardCtx.moveTo(x*(c.width/r.width),y*(c.height/r.height));
+  };
+
+  c.onmousemove=c.ontouchmove=e=>{
+    if(!isDrawing) return;
+    e.preventDefault();
+    const r=c.getBoundingClientRect();
+    const x=(e.touches?e.touches[0].clientX:e.clientX)-r.left;
+    const y=(e.touches?e.touches[0].clientY:e.clientY)-r.top;
+    if(whiteboardTool==='eraser'){ whiteboardCtx.strokeStyle='#fff'; whiteboardCtx.lineWidth=20; }
+    else{ whiteboardCtx.strokeStyle=$('whiteboardColor').value; whiteboardCtx.lineWidth=3; }
+    whiteboardCtx.lineTo(x*(c.width/r.width),y*(c.height/r.height));
+    whiteboardCtx.stroke();
+  };
+
+  c.onmouseup=c.ontouchend=()=>{isDrawing=false};
+  c.onmouseleave=()=>{isDrawing=false};
+}
+document.querySelectorAll('.whiteboard-tool[data-tool]').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.whiteboard-tool[data-tool]').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  whiteboardTool=b.dataset.tool;
+}));
+$('btnClearBoard').addEventListener('click',()=>{
+  if(!whiteboardCtx) return;
+  const c=$('whiteboardCanvas');
+  whiteboardCtx.fillStyle='#fff';
+  whiteboardCtx.fillRect(0,0,c.width,c.height);
+});
+
+/* =========================
+   Leave room
+========================= */
+$('btnLeave').addEventListener('click',leaveRoom);
+$('btnLeaveHeader').addEventListener('click',leaveRoom);
+
+async function leaveRoom(){
+  await leaveStreamCall();
+
+  try{ if(presenceRef){ await presenceRef.remove(); } }catch{}
+  presenceRef=null;
+
+  try{ if(participantsRef){ participantsRef.off(); } }catch{}
+  participantsRef=null;
+
+  if(currentRoom){
+    try{ db.ref(`/chats/${currentRoom}`).off(); }catch{}
+    try{ db.ref(`/transcripts/${currentRoom}`).off(); }catch{}
+  }
+
+  // Teacher meta listener cleanup
+  try{ if(roomMetaTeacherRef) roomMetaTeacherRef.off(); }catch{}
+  roomMetaTeacherRef=null;
+  teacherUserId=null;
+
+  // Transcript listener flag reset
+  transcriptsListenerAttached=false;
+
+  // STT stop & reconnect stop
+  sttStopRequested=true;
+  if(sttReconnectTimer){ clearTimeout(sttReconnectTimer); sttReconnectTimer=null; }
+
+  stopTranscription(true);
+
+  try{ localStream?.getTracks()?.forEach(t=>t.stop()); }catch{}
+  try{ screenStream?.getTracks()?.forEach(t=>t.stop()); }catch{}
+  try{ if(currentAudio){ currentAudio.pause(); currentAudio=null; } }catch{}
+  try{ if(meetingTimerInterval) clearInterval(meetingTimerInterval); }catch{}
+
+  ttsQueue=[]; isPlayingTTS=false; processedIds.clear(); autoPlayTTS=false;
+  participants.clear(); pinnedUserId=null; handRaised=false;
+
+  $('btnRaiseHand').classList.remove('hand-raised');
+  unreadChatCount=0; updateChatBadge();
+
+  currentRoom=null; roomConfig=null; localStream=null; screenStream=null;
+
+  $('appContainer').classList.remove('active');
+  $('videoGrid').innerHTML='';
+
+  $('transcriptUnified').innerHTML='<div class="transcript-empty" id="transcriptEmpty"><i class="fas fa-language"></i><p>Transcripts appear here as participants speak</p></div>';
+  $('originalColumn').innerHTML='';
+  $('translationColumn').innerHTML='';
+  $('studentsList').innerHTML='';
+  $('chatMessages').innerHTML='<div class="chat-empty" id="chatEmpty"><i class="fas fa-comments"></i><p>No messages yet.<br>Start the conversation!</p></div>';
+
+  $('studentsPanel').classList.remove('open');
+  $('transcriptPanel').classList.remove('open');
+  $('chatPanel').classList.remove('open');
+  $('sharedContent').classList.remove('active');
+
+  history.replaceState({},'',location.pathname);
+  showPrejoinScreen();
+}
+
+/* =========================
+   Resize + Service Worker + PWA
+========================= */
+window.addEventListener('resize',()=>{
+  if(window.innerWidth<=768){
+    $('studentsPanel').classList.remove('open');
+    $('transcriptPanel').classList.remove('open');
+  }
+});
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('/run/service-worker.js')
+      .then(reg=>console.log('ServiceWorker registered:',reg.scope))
+      .catch(err=>console.log('ServiceWorker registration failed:',err));
+  });
+}
+
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault();
+  deferredPrompt=e;
+});
+window.addEventListener('appinstalled',()=>{ deferredPrompt=null; });
+</script>
 </body>
 </html>
