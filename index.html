@@ -6,6 +6,7 @@
   <meta name="description" content="Real-time multilingual video classroom with live transcription and translation"/>
   <meta name="theme-color" content="#3498db"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
   <meta name="apple-mobile-web-app-title" content="Success Class"/>
   <link rel="manifest" href="manifest.json"/>
@@ -1011,7 +1012,7 @@ let meetingStartTime=null, meetingTimerInterval=null;
 let presenceRef=null, participantsRef=null;
 
 let participants = new Map(); // id -> { uid, name, role, micEnabled, camEnabled, handRaised, micGranted, photoURL, lastSeen }
-let isTranscribing=false, sttRecorder=null;
+let isTranscribing=false, sttRecorder=null, transcriptionSupported=true;
 let sourceLanguage='en', userLanguage='en', sourceLanguageExplicit=false;
 
 let languagesList=[];
@@ -1041,6 +1042,30 @@ function formatTime(s){
   return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
 }
 function escapeHtml(t){ const d=document.createElement('div'); d.textContent=t; return d.innerHTML; }
+
+function disableTranscription(reason){
+  transcriptionSupported = false;
+  isTranscribing = false;
+  try{ sttRecorder?.stop(); }catch{}
+  sttRecorder = null;
+  $('btnTranscribe').classList.remove('active');
+  $('btnTranscribe').disabled = true;
+  $('btnTranscribe').setAttribute('aria-disabled','true');
+  $('capDot').classList.add('red');
+  $('capState').textContent = 'Waiting';
+  if(reason) showToast(reason);
+}
+
+function pickRecorderCandidates(){
+  if(!window.MediaRecorder) return [];
+  const candidates = [
+    'audio/webm;codecs=opus',
+    'audio/webm',
+    'audio/mp4;codecs=mp4a.40.2',
+    'audio/mp4'
+  ];
+  return candidates.filter(type=>MediaRecorder.isTypeSupported(type));
+}
 
 /* =========================
    AUTH FLOW
@@ -1723,7 +1748,12 @@ $('btnClearTranscripts').addEventListener('click', ()=>{
    - no model names shown in UI
 ========================= */
 function startTranscription(){
-  if(isTranscribing) return;
+  if(isTranscribing || !transcriptionSupported) return;
+
+  if(!window.MediaRecorder){
+    disableTranscription('Transcription not supported in this browser');
+    return;
+  }
 
   const key = _d64(OPENAI_KEY_B64);
   if(!key){
@@ -1736,41 +1766,60 @@ function startTranscription(){
     showToast('Microphone not available');
     return;
   }
+  const micTrack = streamToRecord.getAudioTracks()[0];
+  if(micTrack && !micTrack.enabled){
+    showToast('Mic is off');
+    return;
+  }
 
   isTranscribing = true;
   $('btnTranscribe').classList.add('active');
   $('capDot').classList.remove('red');
   $('capState').textContent = 'Caption';
 
-  const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-    ? 'audio/webm;codecs=opus'
-    : 'audio/webm';
+  const candidates = pickRecorderCandidates();
+  if(candidates.length === 0) candidates.push('');
 
   try{
-    sttRecorder = new MediaRecorder(streamToRecord, { mimeType });
-    const chunks = [];
+    let started = false;
+    let effectiveMimeType = '';
 
-    sttRecorder.ondataavailable = e=>{ if(e.data && e.data.size) chunks.push(e.data); };
-    sttRecorder.onstop = async ()=>{
+    for(const type of candidates){
       try{
-        const blob = new Blob(chunks, { type: mimeType });
-        if(blob.size > 1200){
-          await sendToStt(blob, key);
-        }
-      }catch(e){}
-      if(isTranscribing) startTranscription(); // loop
-    };
+        sttRecorder = type
+          ? new MediaRecorder(streamToRecord, { mimeType: type })
+          : new MediaRecorder(streamToRecord);
+        effectiveMimeType = sttRecorder.mimeType || type || 'audio/webm';
+        const chunks = [];
 
-    sttRecorder.start();
-    setTimeout(()=>{ try{ if(sttRecorder && sttRecorder.state==='recording') sttRecorder.stop(); }catch{} }, 6500);
+        sttRecorder.ondataavailable = e=>{ if(e.data && e.data.size) chunks.push(e.data); };
+        sttRecorder.onstop = async ()=>{
+          try{
+            const blob = new Blob(chunks, { type: effectiveMimeType });
+            if(blob.size > 1200){
+              await sendToStt(blob, key);
+            }
+          }catch(e){}
+          if(isTranscribing) startTranscription(); // loop
+        };
+
+        sttRecorder.start();
+        setTimeout(()=>{ try{ if(sttRecorder && sttRecorder.state==='recording') sttRecorder.stop(); }catch{} }, 6500);
+        started = true;
+        break;
+      }catch(e){
+        try{ sttRecorder?.stop(); }catch{}
+        sttRecorder = null;
+      }
+    }
+
+    if(!started){
+      disableTranscription('Transcription not supported in this browser');
+    }
 
   }catch(e){
     console.error('MediaRecorder', e);
-    showToast('Transcription failed to start');
-    isTranscribing=false;
-    $('btnTranscribe').classList.remove('active');
-    $('capDot').classList.add('red');
-    $('capState').textContent = 'Waiting';
+    disableTranscription('Transcription failed to start');
   }
 }
 
