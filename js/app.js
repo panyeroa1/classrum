@@ -670,7 +670,7 @@ async function generateStreamToken(userId, userName) {
 
 async function initStreamVideo() {
   try {
-    if (!window.StreamVideo) {
+    if (!window.StreamVideoClient) {
       showToast('Video library not loaded - using basic mode');
       return;
     }
@@ -679,7 +679,7 @@ async function initStreamVideo() {
     const userId = currentUser?.uid || `user_${Date.now()}`;
     const token = await generateStreamToken(userId, userName);
 
-    streamClient = new StreamVideo({
+    streamClient = new StreamVideoClient({
       apiKey: STREAM_API_KEY,
       token,
       user: { id:userId, name:userName, image:userProfile?.photoURL || currentUser?.photoURL || '' },
