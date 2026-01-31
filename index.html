@@ -1,2248 +1,358 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-  <meta name="description" content="Real-time multilingual video classroom with live transcription and translation"/>
-  <meta name="theme-color" content="#3498db"/>
-  <meta name="apple-mobile-web-app-capable" content="yes"/>
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-  <meta name="apple-mobile-web-app-title" content="Success Class"/>
-  <link rel="manifest" href="manifest.json"/>
-  <link rel="icon" type="image/svg+xml" href="assets/logo.svg"/>
-  <link rel="apple-touch-icon" href="assets/logo.svg"/>
-  <title>Success Class • ORBIT</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>ORBIT | Group SUCCESS</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsrsasign/10.9.0/jsrsasign-all-min.js"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f0f2f5; height: 100vh; margin: 0; overflow: hidden; touch-action: manipulation; }
+        
+        /* Native Mobile Lock: Disable Zoom */
+        input, select, button { font-size: 16px !important; touch-action: manipulation; }
+        
+        .chat-bg { background-color: #efeae2; background-image: url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png"); background-size: 400px; }
+        
+        @media (max-width: 767px) {
+            #sidebar { position: absolute; width: 100%; height: 100%; z-index: 20; transition: transform 0.3s ease; }
+            #chat-main { position: absolute; width: 100%; height: 100%; z-index: 30; transform: translateX(100%); transition: transform 0.3s ease; }
+            .mobile-chat-open #chat-main { transform: translateX(0); }
+            .mobile-chat-open #sidebar { transform: translateX(-100%); }
+        }
 
-  <script type="module">
-    import { StreamVideoClient } from 'https://esm.sh/@stream-io/video-client@latest';
-    window.StreamVideoClient = StreamVideoClient;
-  </script>
-
-  <style>
-    :root{
-      --bg:#0b0b0c;
-      --surface:#141416;
-      --surface2:#1b1b1e;
-      --surface3:#242428;
-      --border:rgba(255,255,255,.10);
-      --border2:rgba(255,255,255,.14);
-      --text:#f5f5f6;
-      --text-muted:rgba(245,245,246,.55);
-      --accent:#3498db;
-      --accent2:#2980b9;
-      --green:#22c55e;
-      --red:#ef4444;
-      --yellow:#eab308;
-      --cyan:#1abc9c;
-      --shadow:0 18px 50px rgba(0,0,0,.55);
-    }
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{
-      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-      background:radial-gradient(1200px 600px at 50% -200px, rgba(52,152,219,.18), transparent 60%), var(--bg);
-      color:var(--text);
-      min-height:100vh;min-height:100dvh;
-      overflow:hidden;
-      -webkit-touch-callout:none;-webkit-user-select:none;user-select:none;
-      touch-action:pan-y;
-    }
-    @media(max-width:1024px){body{overflow-y:auto;overflow-x:hidden}}
-    button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
-    input,select{font:inherit}
-    ::-webkit-scrollbar{width:6px;height:6px}
-    ::-webkit-scrollbar-track{background:transparent}
-    ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.16);border-radius:3px}
-
-    .is-hidden{display:none}
-    .pill{
-      display:inline-flex;align-items:center;gap:8px;
-      background:rgba(255,255,255,.06);
-      border:1px solid var(--border);
-      padding:6px 10px;border-radius:999px;
-      font-size:12px;color:var(--text-muted);
-    }
-    .pill .dot{width:8px;height:8px;border-radius:50%;background:var(--green)}
-    .pill .dot.red{background:var(--red)}
-    .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}
-
-    /* LOADING */
-    .loading-overlay{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;text-align:center}
-    .loading-card{background:rgba(20,20,22,.88);border:1px solid var(--border);border-radius:20px;padding:28px;max-width:420px;width:100%;box-shadow:var(--shadow);backdrop-filter:blur(18px)}
-    .loading-icon{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,var(--accent),var(--cyan));display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:22px}
-    .loading-title{font-size:18px;font-weight:700;margin-bottom:8px}
-    .loading-text{font-size:14px;color:var(--text-muted);line-height:1.5}
-    .loading-actions{margin-top:16px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
-    .loading-btn{padding:10px 16px;border-radius:10px;background:var(--accent);color:#fff;text-decoration:none;font-size:13px;font-weight:600}
-    .loading-btn.secondary{background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--text)}
-    .loading-overlay.hidden{display:none}
-
-    /* PREJOIN */
-    .prejoin-overlay{position:fixed;inset:0;background:#000;background-image:radial-gradient(circle at 50% 0%,#1c1c1e 0%,#000 70%);display:none;z-index:9998;padding:18px;overflow-y:auto}
-    .prejoin-overlay.active{display:flex;align-items:center;justify-content:center}
-    .prejoin-container{
-      width:100%;max-width:980px;
-      display:grid;grid-template-columns:1.05fr .95fr;
-      gap:28px;align-items:start;
-      background:rgba(20,20,22,.82);
-      border:1px solid var(--border);
-      border-radius:28px;padding:26px;
-      box-shadow:var(--shadow);
-      backdrop-filter:blur(22px);
-    }
-    @media(max-width:900px){.prejoin-container{grid-template-columns:1fr;max-width:560px}}
-    .prejoin-preview{display:flex;flex-direction:column;gap:14px}
-    .prejoin-video-wrapper{
-      position:relative;width:100%;aspect-ratio:16/9;background:#101012;border-radius:18px;overflow:hidden;
-      border:1px solid var(--border2);
-      box-shadow:0 18px 40px rgba(0,0,0,.35);
-    }
-    .prejoin-video-wrapper video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
-    .prejoin-video-off{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#101012;color:var(--text-muted)}
-    .prejoin-video-off i{font-size:44px;margin-bottom:10px}
-    .prejoin-video-off.hidden{display:none}
-    .prejoin-controls{
-      display:flex;justify-content:center;gap:12px;
-      background:rgba(0,0,0,.55);padding:10px 14px;border-radius:999px;
-      border:1px solid rgba(255,255,255,.08);
-      backdrop-filter:blur(12px);
-    }
-    .prejoin-toggle{width:44px;height:44px;border-radius:999px;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;font-size:17px;transition:.15s;color:#fff}
-    .prejoin-toggle:hover{background:rgba(255,255,255,.14)}
-    .prejoin-toggle.off{background:var(--red);color:#fff}
-    .prejoin-form{display:flex;flex-direction:column}
-    .prejoin-form h2{font-size:26px;font-weight:800;margin-bottom:8px;letter-spacing:.2px}
-    .prejoin-form>p{color:var(--text-muted);margin-bottom:16px;font-size:14px;line-height:1.5}
-    .prejoin-user{display:flex;align-items:center;gap:12px;padding:14px;background:rgba(255,255,255,.05);border-radius:14px;margin-bottom:14px;border:1px solid var(--border)}
-    .prejoin-user-avatar{width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--cyan));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px}
-    .prejoin-user-avatar img{width:100%;height:100%;border-radius:50%;object-fit:cover}
-    .prejoin-user-info h4{font-size:15px}
-    .prejoin-user-info p{font-size:12px;color:var(--text-muted);margin-top:2px}
-    .field{margin-bottom:12px}
-    .field label{display:block;font-size:11px;text-transform:uppercase;color:rgba(245,245,246,.6);font-weight:800;margin-bottom:7px;letter-spacing:.6px}
-    .field input,.field select{
-      width:100%;padding:12px 14px;border-radius:14px;
-      border:1px solid var(--border);
-      background:rgba(255,255,255,.05);
-      color:var(--text);
-      font-size:14px;
-      outline:none;
-    }
-    .field input:focus,.field select:focus{border-color:rgba(52,152,219,.65);background:rgba(255,255,255,.07)}
-    .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    @media(max-width:520px){.row2{grid-template-columns:1fr}}
-    .roomline{display:flex;gap:10px;align-items:center}
-    .roomprefix{
-      padding:12px 12px;border-radius:14px;
-      border:1px solid var(--border);
-      background:rgba(255,255,255,.05);
-      color:rgba(52,152,219,.95);
-      font-weight:900;font-size:12px;letter-spacing:.8px;
-      white-space:nowrap;
-    }
-    .btn-primary{
-      margin-top:6px;
-      padding:14px 16px;border-radius:16px;
-      font-size:15px;font-weight:800;
-      background:linear-gradient(135deg, rgba(34,197,94,1), rgba(34,197,94,.85));
-      color:#07130a;
-      box-shadow:0 16px 38px rgba(34,197,94,.18);
-    }
-    .btn-primary:hover{filter:brightness(1.05)}
-    .btn-ghost{
-      margin-top:10px;
-      padding:12px 14px;border-radius:14px;
-      border:1px solid var(--border);
-      background:rgba(255,255,255,.05);
-      color:rgba(245,245,246,.75);
-      font-weight:700;font-size:13px;
-    }
-    .btn-ghost:hover{background:rgba(255,255,255,.08);color:var(--text)}
-
-    /* APP SHELL */
-    .app-container{display:none;height:100vh;height:100dvh;flex-direction:column}
-    .app-container.active{display:flex}
-
-    /* TOP HEADER */
-    .top-header{
-      display:flex;align-items:center;justify-content:space-between;
-      padding:10px 14px;
-      background:rgba(20,20,22,.78);
-      border-bottom:1px solid var(--border);
-      flex-shrink:0;gap:12px;
-      position:sticky;top:0;z-index:100;
-      backdrop-filter:blur(16px);
-    }
-    .header-left{display:flex;align-items:center;gap:12px;min-width:0}
-    .header-logo{display:flex;align-items:center;gap:9px;font-weight:900;font-size:15px;min-width:0}
-    .header-logo .logo-icon{width:30px;height:30px;background:linear-gradient(135deg,var(--accent),var(--cyan));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:13px}
-    .header-logo span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .room-badge{display:flex;align-items:center;gap:10px;padding:7px 10px;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:12px;font-size:12px}
-    .room-badge-id{font-weight:800;letter-spacing:1px;color:rgba(52,152,219,.95)}
-    .header-center{flex:1;display:flex;justify-content:center}
-    .meeting-timer{
-      display:flex;align-items:center;gap:8px;
-      padding:7px 12px;background:rgba(255,255,255,.06);
-      border:1px solid var(--border);
-      border-radius:12px;
-      font-size:12px;
-    }
-    .meeting-timer i{color:var(--red)}
-    .meeting-timer.recording i{animation:blink 1s infinite}
-    @keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
-    .header-right{display:flex;align-items:center;gap:8px}
-    .header-btn{
-      width:40px;height:40px;border-radius:14px;
-      background:rgba(255,255,255,.06);
-      border:1px solid var(--border);
-      display:flex;align-items:center;justify-content:center;
-      font-size:16px;transition:.12s;
-    }
-    .header-btn:hover{background:rgba(255,255,255,.10)}
-    .header-btn.danger{background:rgba(239,68,68,.16);border-color:rgba(239,68,68,.24);color:#fff}
-    .header-btn.danger:hover{background:rgba(239,68,68,.22)}
-
-    @media(max-width:640px){
-      .room-badge{display:none}
-      .meeting-timer span{display:none}
-      .header-logo span{display:none}
-      .header-btn{width:38px;height:38px;border-radius:12px}
-    }
-
-    /* MAIN 3-COLUMN LAYOUT (like your screenshot) */
-    .main-content{
-      flex:1;
-      display:grid;
-      grid-template-columns: 360px 1fr 320px;
-      gap:10px;
-      padding:10px;
-      overflow:hidden;
-      padding-bottom:90px; /* for bottom bar */
-    }
-    .panel{
-      background:rgba(20,20,22,.78);
-      border:1px solid var(--border);
-      border-radius:18px;
-      overflow:hidden;
-      backdrop-filter:blur(16px);
-      box-shadow:0 16px 40px rgba(0,0,0,.34);
-      display:flex;
-      flex-direction:column;
-      min-width:0;
-      min-height:0;
-    }
-    .panel-header{
-      padding:12px 12px;
-      border-bottom:1px solid var(--border);
-      display:flex;align-items:center;justify-content:space-between;gap:10px;
-      background:rgba(255,255,255,.04);
-    }
-    .panel-header h3{
-      font-size:14px;
-      font-weight:900;
-      display:flex;align-items:center;gap:8px;
-    }
-    .panel-header h3 i{color:rgba(52,152,219,.95)}
-    .panel-body{flex:1;min-height:0;overflow:auto;padding:12px}
-
-    /* LEFT: TEACHER STAGE */
-    .stage-video{
-      position:relative;
-      width:100%;
-      aspect-ratio:16/9;
-      border-radius:16px;
-      overflow:hidden;
-      background:#0f0f11;
-      border:1px solid var(--border2);
-    }
-    .stage-video video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
-    .stage-overlay{
-      position:absolute;inset:0;
-      pointer-events:none;
-      background:linear-gradient(to bottom, rgba(0,0,0,.35), transparent 40%, rgba(0,0,0,.55));
-    }
-    .stage-top{
-      position:absolute;top:10px;left:10px;right:10px;
-      display:flex;align-items:center;justify-content:space-between;
-      pointer-events:auto;
-    }
-    .live-pill{
-      display:flex;align-items:center;gap:8px;
-      padding:6px 10px;border-radius:999px;
-      background:rgba(0,0,0,.45);
-      border:1px solid rgba(255,255,255,.14);
-      font-size:12px;font-weight:800;
-    }
-    .live-pill .dot{width:8px;height:8px;border-radius:50%;background:var(--red);box-shadow:0 0 0 4px rgba(239,68,68,.18)}
-    .stage-actions{display:flex;gap:8px}
-    .mini-btn{
-      width:34px;height:34px;border-radius:12px;
-      background:rgba(0,0,0,.45);
-      border:1px solid rgba(255,255,255,.14);
-      display:flex;align-items:center;justify-content:center;
-      transition:.12s;
-    }
-    .mini-btn:hover{background:rgba(0,0,0,.60)}
-    .stage-bottom{
-      position:absolute;bottom:10px;left:10px;right:10px;
-      display:flex;align-items:center;justify-content:space-between;gap:10px;
-      pointer-events:auto;
-    }
-    .who{
-      display:flex;align-items:center;gap:10px;min-width:0;
-    }
-    .who .avatar{
-      width:34px;height:34px;border-radius:50%;
-      background:linear-gradient(135deg,var(--accent),var(--cyan));
-      display:flex;align-items:center;justify-content:center;
-      font-weight:900;font-size:13px;
-      flex-shrink:0;
-    }
-    .who .meta{min-width:0}
-    .who .meta .name{font-weight:900;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .who .meta .sub{font-size:11px;color:rgba(245,245,246,.65)}
-    .stage-time{font-size:12px;color:rgba(245,245,246,.75);background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.12);padding:6px 10px;border-radius:999px}
-
-    .levels{
-      margin-top:12px;
-      padding:12px;
-      border-radius:16px;
-      background:rgba(255,255,255,.05);
-      border:1px solid var(--border);
-    }
-    .levels h4{font-size:12px;font-weight:900;color:rgba(245,245,246,.8);margin-bottom:10px;letter-spacing:.2px}
-    .level-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-    .level-row:last-child{margin-bottom:0}
-    .level-row .lbl{width:56px;font-size:12px;color:rgba(245,245,246,.70);font-weight:800}
-    .meter{
-      flex:1;height:8px;border-radius:999px;
-      background:rgba(255,255,255,.08);
-      border:1px solid rgba(255,255,255,.10);
-      overflow:hidden;
-    }
-    .meter > i{
-      display:block;height:100%;width:0%;
-      background:linear-gradient(90deg, rgba(34,197,94,.9), rgba(234,179,8,.9), rgba(239,68,68,.9));
-      border-radius:999px;
-      transition:width .12s ease;
-    }
-
-    /* CENTER: TRANSCRIPTS */
-    .center-topbar{
-      display:grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap:10px;
-      padding:10px 12px;
-      border-bottom:1px solid var(--border);
-      background:rgba(255,255,255,.04);
-    }
-    .sel{
-      display:flex;flex-direction:column;gap:6px;min-width:0;
-    }
-    .sel label{font-size:11px;color:rgba(245,245,246,.58);font-weight:900;letter-spacing:.4px;text-transform:uppercase}
-    .sel select{
-      width:100%;
-      padding:10px 12px;border-radius:12px;
-      border:1px solid var(--border);
-      background:rgba(255,255,255,.06);
-      color:var(--text);
-      outline:none;
-    }
-    .sel select:focus{border-color:rgba(52,152,219,.6);background:rgba(255,255,255,.08)}
-    @media(max-width:1100px){
-      .center-topbar{grid-template-columns:1fr;gap:8px}
-    }
-
-    .transcript-toolbar{
-      padding:10px 12px;
-      display:flex;align-items:center;justify-content:space-between;gap:10px;
-      border-bottom:1px solid var(--border);
-      background:rgba(255,255,255,.03);
-    }
-    .toolbar-left{display:flex;align-items:center;gap:10px;min-width:0}
-    .toolbar-left h3{font-size:14px;font-weight:900;display:flex;align-items:center;gap:8px}
-    .toolbar-left h3 i{color:rgba(52,152,219,.95)}
-    .btn-auto{
-      display:inline-flex;align-items:center;gap:8px;
-      padding:7px 10px;border-radius:999px;
-      border:1px solid var(--border);
-      background:rgba(255,255,255,.06);
-      font-size:12px;font-weight:900;
-      color:rgba(245,245,246,.78);
-    }
-    .btn-auto.active{background:rgba(34,197,94,.22);border-color:rgba(34,197,94,.28);color:#fff}
-    .queue-badge{
-      min-width:18px;height:18px;border-radius:999px;
-      background:rgba(52,152,219,.95);
-      color:#fff;
-      display:inline-flex;align-items:center;justify-content:center;
-      font-size:11px;font-weight:900;
-      padding:0 6px;
-    }
-    .toolbar-right{display:flex;align-items:center;gap:8px}
-    .seg-toggle{
-      display:flex;
-      padding:3px;
-      border-radius:12px;
-      border:1px solid var(--border);
-      background:rgba(255,255,255,.05);
-    }
-    .seg-toggle button{
-      padding:6px 10px;border-radius:10px;
-      font-size:12px;font-weight:900;
-      color:rgba(245,245,246,.55);
-    }
-    .seg-toggle button.active{background:rgba(52,152,219,.22);color:#fff}
-    .center-body{
-      flex:1;
-      overflow:hidden;
-      display:flex;
-      flex-direction:column;
-      min-height:0;
-    }
-    .split-wrap{flex:1;display:none;min-height:0}
-    .split-wrap.active{display:grid;grid-template-columns:1fr 1fr;min-height:0}
-    .col{
-      min-width:0;
-      display:flex;flex-direction:column;
-      border-right:1px solid var(--border);
-      min-height:0;
-    }
-    .col:last-child{border-right:none}
-    .col-h{
-      padding:10px 12px;
-      background:rgba(255,255,255,.03);
-      border-bottom:1px solid var(--border);
-      font-size:11px;font-weight:900;
-      letter-spacing:.5px;
-      color:rgba(245,245,246,.55);
-      text-transform:uppercase;
-    }
-    .col-b{
-      flex:1;min-height:0;
-      overflow:auto;
-      padding:12px;
-    }
-
-    .unified-wrap{flex:1;overflow:auto;padding:12px;display:block}
-    .unified-wrap.hidden{display:none}
-
-    .entry{
-      background:rgba(255,255,255,.05);
-      border:1px solid var(--border);
-      border-radius:16px;
-      padding:12px;
-      margin-bottom:10px;
-    }
-    .entry:last-child{margin-bottom:0}
-    .entry-top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-    .entry-ava{
-      width:26px;height:26px;border-radius:50%;
-      background:linear-gradient(135deg,var(--accent),var(--cyan));
-      display:flex;align-items:center;justify-content:center;
-      font-size:11px;font-weight:900;
-      flex-shrink:0;
-    }
-    .entry-name{font-size:12px;font-weight:900}
-    .entry-time{margin-left:auto;font-size:11px;color:rgba(245,245,246,.55)}
-    .bubble{
-      padding:10px 11px;border-radius:14px;
-      border:1px solid rgba(255,255,255,.10);
-      background:rgba(0,0,0,.20);
-      line-height:1.45;
-      font-size:13px;
-    }
-    .bubble.muted{color:rgba(245,245,246,.62);border-left:3px solid rgba(255,255,255,.22)}
-    .bubble.accent{border-left:3px solid rgba(52,152,219,.9);background:rgba(52,152,219,.10)}
-    .entry-actions{display:flex;gap:8px;margin-top:10px}
-    .play{
-      display:inline-flex;align-items:center;gap:8px;
-      padding:7px 10px;border-radius:12px;
-      border:1px solid var(--border);
-      background:rgba(255,255,255,.06);
-      font-size:12px;font-weight:900;
-      color:rgba(245,245,246,.78);
-    }
-    .play:hover{background:rgba(52,152,219,.16)}
-    .play.playing{background:rgba(34,197,94,.22);border-color:rgba(34,197,94,.28);color:#fff}
-
-    .line{
-      padding:10px 0;border-bottom:1px solid rgba(255,255,255,.08)
-    }
-    .line:last-child{border-bottom:none}
-    .line-top{display:flex;align-items:center;gap:8px;margin-bottom:6px}
-    .line-ava{width:18px;height:18px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--cyan));display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900}
-    .line-name{font-size:11px;font-weight:900}
-    .line-time{margin-left:auto;font-size:10px;color:rgba(245,245,246,.55)}
-    .line-text{font-size:13px;line-height:1.45;color:rgba(245,245,246,.90)}
-    .empty{
-      height:100%;
-      display:flex;flex-direction:column;align-items:center;justify-content:center;
-      text-align:center;
-      padding:24px;
-      color:rgba(245,245,246,.55);
-    }
-    .empty i{font-size:44px;margin-bottom:14px;opacity:.55}
-
-    /* RIGHT: PARTICIPANTS */
-    .queue-card{
-      border:1px solid var(--border);
-      background:rgba(255,255,255,.05);
-      border-radius:16px;
-      padding:12px;
-      margin-bottom:12px;
-    }
-    .queue-card h4{
-      font-size:11px;
-      letter-spacing:.6px;
-      text-transform:uppercase;
-      color:rgba(245,245,246,.58);
-      font-weight:900;
-      margin-bottom:10px;
-    }
-    .queue-empty{
-      padding:12px;border-radius:14px;
-      background:rgba(0,0,0,.18);
-      border:1px solid rgba(255,255,255,.10);
-      color:rgba(245,245,246,.55);
-      font-size:13px;
-      text-align:center;
-    }
-    .person{
-      display:flex;align-items:center;gap:10px;
-      padding:10px;border-radius:16px;
-      border:1px solid rgba(255,255,255,.08);
-      background:rgba(255,255,255,.05);
-      margin-bottom:10px;
-    }
-    .person:last-child{margin-bottom:0}
-    .p-ava{width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--cyan));display:flex;align-items:center;justify-content:center;font-weight:900;flex-shrink:0}
-    .p-ava img{width:100%;height:100%;border-radius:50%;object-fit:cover}
-    .p-meta{flex:1;min-width:0}
-    .p-name{font-weight:900;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .p-sub{margin-top:3px;font-size:11px;color:rgba(245,245,246,.55);display:flex;align-items:center;gap:8px}
-    .tag{
-      display:inline-flex;align-items:center;gap:6px;
-      padding:4px 8px;border-radius:999px;
-      border:1px solid rgba(255,255,255,.10);
-      background:rgba(0,0,0,.18);
-      font-weight:900;font-size:11px;
-    }
-    .tag .dot{width:8px;height:8px;border-radius:50%;background:var(--green)}
-    .tag.muted .dot{background:var(--red)}
-    .p-actions{display:flex;gap:8px}
-    .p-btn{
-      width:38px;height:38px;border-radius:14px;
-      border:1px solid var(--border);
-      background:rgba(255,255,255,.06);
-      display:flex;align-items:center;justify-content:center;
-    }
-    .p-btn:hover{background:rgba(255,255,255,.10)}
-    .p-btn.grant{background:rgba(34,197,94,.18);border-color:rgba(34,197,94,.26)}
-    .p-btn.revoke{background:rgba(239,68,68,.15);border-color:rgba(239,68,68,.22)}
-    .p-btn.hand{background:rgba(234,179,8,.14);border-color:rgba(234,179,8,.22)}
-    .hand-anim{animation:wave .55s ease-in-out infinite alternate}
-    @keyframes wave{0%{transform:rotate(-10deg)}100%{transform:rotate(10deg)}}
-
-    /* CHAT (BOTTOM SHEET on mobile) */
-    .chat-panel{
-      position:fixed;right:14px;bottom:96px;width:360px;max-height:60vh;
-      background:rgba(20,20,22,.92);
-      border:1px solid var(--border);
-      border-radius:18px;
-      box-shadow:var(--shadow);
-      backdrop-filter:blur(16px);
-      overflow:hidden;
-      display:none;
-      z-index:2000;
-      flex-direction:column;
-    }
-    .chat-panel.open{display:flex}
-    .chat-head{padding:12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.04)}
-    .chat-head h3{font-size:14px;font-weight:900;display:flex;align-items:center;gap:8px}
-    .chat-head h3 i{color:rgba(52,152,219,.95)}
-    .chat-close{width:38px;height:38px;border-radius:14px;border:1px solid var(--border);background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center}
-    .chat-close:hover{background:rgba(255,255,255,.10)}
-    .chat-messages{flex:1;min-height:0;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
-    .msg{max-width:85%;padding:10px 12px;border-radius:16px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.05);font-size:13px;line-height:1.45}
-    .msg.sent{align-self:flex-end;background:rgba(52,152,219,.20);border-color:rgba(52,152,219,.25)}
-    .msg.received{align-self:flex-start}
-    .msg-top{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:11px;color:rgba(245,245,246,.55);font-weight:900}
-    .chat-input{display:flex;gap:8px;padding:12px;border-top:1px solid var(--border);background:rgba(255,255,255,.03)}
-    .chat-input input{
-      flex:1;padding:12px 12px;border-radius:999px;border:1px solid var(--border);
-      background:rgba(255,255,255,.06);color:var(--text);outline:none;
-    }
-    .chat-input input:focus{border-color:rgba(52,152,219,.6)}
-    .chat-send{width:44px;height:44px;border-radius:999px;background:rgba(52,152,219,.92);display:flex;align-items:center;justify-content:center;color:#fff}
-    .chat-send:hover{filter:brightness(1.05)}
-    @media(max-width:900px){
-      .main-content{grid-template-columns:1fr;gap:10px;overflow:visible;padding-bottom:110px}
-      .chat-panel{left:14px;right:14px;width:auto;bottom:110px;max-height:60vh}
-    }
-
-    /* BOTTOM BAR */
-    .control-bar{
-      position:fixed;left:0;right:0;bottom:0;
-      display:flex;align-items:center;justify-content:center;gap:10px;
-      padding:14px 14px calc(14px + env(safe-area-inset-bottom));
-      background:rgba(20,20,22,.80);
-      border-top:1px solid var(--border);
-      backdrop-filter:blur(16px);
-      z-index:1500;
-    }
-    .cbtn{
-      display:flex;flex-direction:column;align-items:center;gap:6px;
-      padding:12px 14px;
-      min-width:74px;
-      border-radius:16px;
-      border:1px solid var(--border);
-      background:rgba(255,255,255,.06);
-      transition:.12s;
-    }
-    .cbtn:hover{background:rgba(255,255,255,.10)}
-    .cbtn i{font-size:18px}
-    .cbtn span{font-size:10px;color:rgba(245,245,246,.62);font-weight:900}
-    .cbtn.active{background:rgba(52,152,219,.22);border-color:rgba(52,152,219,.28)}
-    .cbtn.muted{background:rgba(239,68,68,.16);border-color:rgba(239,68,68,.22)}
-    .cbtn.hand-raised{background:rgba(234,179,8,.18);border-color:rgba(234,179,8,.24);color:#fff}
-    .cbtn.danger{background:rgba(239,68,68,.18);border-color:rgba(239,68,68,.26)}
-    .divider{width:1px;height:44px;background:rgba(255,255,255,.10);margin:0 4px}
-    @media(max-width:560px){
-      .control-bar{flex-wrap:wrap;gap:8px}
-      .cbtn{min-width:66px;padding:10px 12px;border-radius:14px}
-    }
-
-    /* TOAST */
-    .toast{
-      position:fixed;bottom:92px;left:50%;
-      transform:translateX(-50%);
-      background:rgba(20,20,22,.92);
-      border:1px solid var(--border);
-      padding:12px 14px;
-      border-radius:16px;
-      font-size:13px;
-      z-index:3000;
-      display:none;
-      box-shadow:var(--shadow);
-      backdrop-filter:blur(14px);
-      max-width:min(560px, calc(100vw - 28px));
-      text-align:center;
-    }
-    .toast.show{display:block;animation:fadeUp .25s ease}
-    @keyframes fadeUp{from{opacity:0;transform:translateX(-50%) translateY(12px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
-
-    /* “LOCKED MIC” */
-    .locked-hint{
-      margin-top:10px;
-      padding:10px 12px;border-radius:16px;
-      background:rgba(234,179,8,.10);
-      border:1px solid rgba(234,179,8,.18);
-      color:rgba(245,245,246,.78);
-      font-size:12px;line-height:1.45;
-      display:none;
-    }
-    .locked-hint.show{display:block}
-  </style>
+        .bubble-shadow { box-shadow: 0 1px 0.5px rgba(0,0,0,0.15); }
+        .emotion-emoji { font-size: 1.25rem; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.1)); }
+    </style>
 </head>
+<body class="flex items-center justify-center">
 
-<body>
-  <div class="loading-overlay" id="loadingOverlay">
-    <div class="loading-card">
-      <div class="loading-icon"><i class="fas fa-circle-notch fa-spin"></i></div>
-      <div class="loading-title" id="loadingTitle">Checking session</div>
-      <div class="loading-text" id="loadingMessage">Please wait while we verify your login.</div>
-      <div class="loading-actions is-hidden" id="loadingActions">
-        <a class="loading-btn" href="auth.html">Go to Sign In</a>
-        <a class="loading-btn secondary" href="index.html">Retry</a>
-      </div>
-    </div>
-  </div>
-
-  <!-- PREJOIN -->
-  <div class="prejoin-overlay" id="prejoinOverlay">
-    <div class="prejoin-container">
-      <div class="prejoin-preview">
-        <div class="prejoin-video-wrapper">
-          <video id="prejoinVideo" autoplay muted playsinline></video>
-          <div class="prejoin-video-off" id="prejoinVideoOff">
-            <i class="fas fa-video-slash"></i>
-            <span>Camera is off</span>
-          </div>
-        </div>
-        <div class="prejoin-controls">
-          <button class="prejoin-toggle" id="prejoinMicToggle" title="Mic"><i class="fas fa-microphone"></i></button>
-          <button class="prejoin-toggle" id="prejoinCamToggle" title="Camera"><i class="fas fa-video"></i></button>
-        </div>
-      </div>
-
-      <div class="prejoin-form">
-        <h2>Join Classroom</h2>
-        <p>Set your name, role, devices, and languages — then join the room.</p>
-
-        <div class="prejoin-user" id="prejoinUser">
-          <div class="prejoin-user-avatar" id="prejoinAvatar">?</div>
-          <div class="prejoin-user-info">
-            <h4 id="prejoinName">User</h4>
-            <p id="prejoinEmail">user@example.com</p>
-          </div>
-        </div>
-
-        <div class="field">
-          <label><i class="fas fa-user"></i> Display Name</label>
-          <input type="text" id="displayNameInput" placeholder="Enter your name" maxlength="50"/>
-        </div>
-
-        <div class="row2">
-          <div class="field">
-            <label><i class="fas fa-user-tag"></i> Role</label>
-            <select id="roleSelect">
-              <option value="teacher">Teacher</option>
-              <option value="student">Student</option>
-            </select>
-          </div>
-          <div class="field">
-            <label><i class="fas fa-language"></i> Your Listening Language</label>
-            <select id="userLanguageSelect"></select>
-          </div>
-        </div>
-
-        <div class="field">
-          <label><i class="fas fa-microphone"></i> STT Source Language</label>
-          <select id="sttLanguageSelect"></select>
-        </div>
-
-        <div class="field">
-          <label><i class="fas fa-door-open"></i> Room</label>
-          <div class="roomline">
-            <span class="roomprefix">CLASS-</span>
-            <input type="text" id="roomIdInput" placeholder="ORBIT" maxlength="12" value="ORBIT"/>
-          </div>
-        </div>
-
-        <div class="row2">
-          <div class="field">
-            <label><i class="fas fa-microphone"></i> Microphone</label>
-            <select id="micSelect"></select>
-          </div>
-          <div class="field">
-            <label><i class="fas fa-video"></i> Camera</label>
-            <select id="camSelect"></select>
-          </div>
-        </div>
-
-        <div class="field">
-          <label><i class="fas fa-volume-up"></i> Speaker</label>
-          <select id="speakerSelect"></select>
-        </div>
-
-        <button class="btn-primary" id="btnJoinRoom"><i class="fas fa-sign-in-alt"></i> Join Class</button>
-        <button class="btn-ghost" id="btnLogout"><i class="fas fa-sign-out-alt"></i> Sign Out</button>
-
-        <div class="locked-hint" id="lockedHint">
-          <strong>Student mode:</strong> your mic starts locked. Tap <strong>Hand</strong> and wait for the teacher to grant your mic.
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- MAIN APP -->
-  <div class="app-container" id="appContainer">
-    <div class="top-header">
-      <div class="header-left">
-        <div class="header-logo">
-          <div class="logo-icon"><i class="fas fa-graduation-cap"></i></div>
-          <span>Success Class</span>
-        </div>
-        <div class="room-badge">
-          <span class="room-badge-id mono" id="displayRoomId">ORBIT</span>
-          <span style="opacity:.35">|</span>
-          <i class="fas fa-circle" style="color:var(--green)"></i>
-          <span id="participantCount">1</span>
-        </div>
-      </div>
-
-      <div class="header-center">
-        <div class="meeting-timer" id="meetingTimer">
-          <i class="fas fa-circle"></i>
-          <span class="mono" id="timerDisplay">00:00</span>
-        </div>
-      </div>
-
-      <div class="header-right">
-        <button class="header-btn" id="btnOpenChat" title="Chat"><i class="fas fa-comments"></i></button>
-        <button class="header-btn" id="btnOpenPrejoin" title="Change devices"><i class="fas fa-sliders-h"></i></button>
-        <button class="header-btn danger" id="btnLeaveHeader" title="Leave"><i class="fas fa-phone-slash"></i></button>
-      </div>
-    </div>
-
-    <div class="main-content">
-      <!-- LEFT -->
-      <div class="panel" id="leftPanel">
-        <div class="panel-header">
-          <h3><i class="fas fa-video"></i> Stage</h3>
-          <span class="pill"><span class="dot"></span><span id="stageStatusText">LIVE</span></span>
-        </div>
-        <div class="panel-body">
-          <div class="stage-video" id="stageVideoWrap">
-            <video id="stageVideo" autoplay playsinline muted></video>
-            <div class="stage-overlay"></div>
-
-            <div class="stage-top">
-              <div class="live-pill"><span class="dot"></span> LIVE</div>
-              <div class="stage-actions">
-                <button class="mini-btn" id="btnPinTeacher" title="Pin"><i class="fas fa-thumbtack"></i></button>
-                <button class="mini-btn" id="btnPiP" title="Picture-in-Picture"><i class="fas fa-external-link-square-alt"></i></button>
-              </div>
+    <!-- DELETE CONFIRMATION MODAL -->
+    <div id="delete-modal" class="fixed inset-0 z-[110] bg-black/60 flex items-center justify-center p-6 hidden">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in fade-in zoom-in duration-200">
+            <h3 class="text-lg font-bold text-gray-800">Clear Conversation?</h3>
+            <p class="text-sm text-gray-500 mt-2">Delete all messages in this room? This cannot be undone.</p>
+            <div class="flex justify-end gap-3 mt-6">
+                <button onclick="toggleDeleteModal(false)" class="px-4 py-2 text-sm font-semibold text-gray-400">Cancel</button>
+                <button id="confirm-delete-btn" class="px-4 py-2 text-sm font-semibold bg-red-500 text-white rounded-lg">Delete All</button>
             </div>
+        </div>
+    </div>
 
-            <div class="stage-bottom">
-              <div class="who">
-                <div class="avatar" id="stageAvatar">T</div>
-                <div class="meta">
-                  <div class="name" id="stageName">Teacher</div>
-                  <div class="sub" id="stageSub">Stage</div>
+    <!-- GATEWAY MODAL -->
+    <div id="gateway-modal" class="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
+            <div class="bg-[#008069] p-6 text-white text-center">
+                <h2 class="text-xl font-bold">Group Gateway</h2>
+                <p class="text-xs opacity-80 uppercase tracking-widest mt-1">Join SUCCESS Room</p>
+            </div>
+            
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Display Name</label>
+                    <input id="user-display-name" type="text" placeholder="Enter name" maxlength="20" class="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#008069] outline-none">
                 </div>
-              </div>
-              <div class="stage-time mono" id="stageTimer">00:00</div>
+
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Room Code</label>
+                    <input id="room-code" type="text" value="" placeholder="SUCCESS" class="w-full border-2 border-gray-100 rounded-xl px-4 py-2 text-center text-xl font-bold focus:border-[#008069] outline-none uppercase tracking-widest">
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Gender</label>
+                        <select id="user-gender" class="w-full border-2 border-gray-100 rounded-lg px-3 py-2 outline-none focus:border-[#008069] bg-white text-sm">
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Language</label>
+                        <select id="user-lang" class="w-full border-2 border-gray-100 rounded-lg px-3 py-2 outline-none focus:border-[#008069] bg-white text-sm">
+                            <!-- Populated by JS -->
+                        </select>
+                    </div>
+                </div>
+
+                <button id="btn-connect" class="w-full bg-[#00a884] text-white font-bold py-4 rounded-xl shadow-lg hover:bg-[#008069] transition-all uppercase tracking-widest mt-2">
+                    Start Session
+                </button>
             </div>
-          </div>
-
-          <div class="levels">
-            <h4><i class="fas fa-wave-square"></i> AUDIO LEVELS</h4>
-            <div class="level-row">
-              <div class="lbl">Mic</div>
-              <div class="meter"><i id="micMeter"></i></div>
-            </div>
-            <div class="level-row">
-              <div class="lbl">Output</div>
-              <div class="meter"><i id="outMeter"></i></div>
-            </div>
-          </div>
         </div>
-      </div>
-
-      <!-- CENTER -->
-      <div class="panel" id="centerPanel">
-        <div class="panel-header">
-          <h3><i class="fas fa-language"></i> Transcripts</h3>
-          <div style="display:flex;align-items:center;gap:8px">
-            <button class="btn-auto" id="btnAutoTTS"><i class="fas fa-volume-up"></i><span>Auto</span><span class="queue-badge is-hidden" id="ttsQueueBadge">0</span></button>
-            <div class="seg-toggle">
-              <button class="active" id="viewUnifiedBtn">Unified</button>
-              <button id="viewSplitBtn">Split</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Dropdown row like your screenshot -->
-        <div class="center-topbar">
-          <div class="sel">
-            <label><i class="fas fa-microphone"></i> Audio source</label>
-            <select id="audioSourceSelect"></select>
-          </div>
-          <div class="sel">
-            <label><i class="fas fa-wave-square"></i> STT Source Language</label>
-            <select id="centerSttLanguageSelect"></select>
-          </div>
-          <div class="sel">
-            <label><i class="fas fa-globe"></i> Translation Target Language</label>
-            <select id="translationLanguageSelect"></select>
-          </div>
-        </div>
-
-        <div class="transcript-toolbar">
-          <div class="toolbar-left">
-            <h3><i class="fas fa-closed-captioning"></i> Live feed</h3>
-            <span class="pill"><span class="dot" id="capDot"></span><span id="capState">Caption</span></span>
-          </div>
-          <div class="toolbar-right">
-            <button class="header-btn" id="btnClearTranscripts" title="Clear"><i class="fas fa-trash"></i></button>
-          </div>
-        </div>
-
-        <div class="center-body">
-          <div class="unified-wrap" id="transcriptUnified">
-            <div class="empty" id="transcriptEmpty"><i class="fas fa-language"></i><p>Transcripts appear here as participants speak</p></div>
-          </div>
-
-          <div class="split-wrap" id="transcriptSplit">
-            <div class="col">
-              <div class="col-h">Original</div>
-              <div class="col-b" id="originalColumn"></div>
-            </div>
-            <div class="col">
-              <div class="col-h">Translation</div>
-              <div class="col-b" id="translationColumn"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- RIGHT -->
-      <div class="panel" id="rightPanel">
-        <div class="panel-header">
-          <h3><i class="fas fa-users"></i> Participants</h3>
-          <span class="pill"><span class="dot"></span><span id="participantsMiniCount">1</span></span>
-        </div>
-        <div class="panel-body">
-          <div class="queue-card">
-            <h4>RAISE HAND QUEUE</h4>
-            <div class="queue-empty" id="handQueueEmpty">No hands raised<br><span style="font-size:12px;opacity:.75">Queue is empty</span></div>
-            <div id="handQueueList" class="is-hidden"></div>
-          </div>
-
-          <div style="margin-bottom:8px;font-size:11px;font-weight:900;letter-spacing:.6px;text-transform:uppercase;color:rgba(245,245,246,.58)">ALL STUDENTS</div>
-          <div id="studentsList"></div>
-        </div>
-      </div>
     </div>
 
-    <!-- CHAT PANEL -->
-    <div class="chat-panel" id="chatPanel">
-      <div class="chat-head">
-        <h3><i class="fas fa-comments"></i> Group Chat</h3>
-        <button class="chat-close" id="btnCloseChat"><i class="fas fa-times"></i></button>
-      </div>
-      <div class="chat-messages" id="chatMessages">
-        <div class="empty" id="chatEmpty"><i class="fas fa-comments"></i><p>No messages yet.<br>Start the conversation!</p></div>
-      </div>
-      <div class="chat-input">
-        <input type="text" id="chatInput" placeholder="Type a message..." maxlength="500">
-        <button class="chat-send" id="btnSendChat"><i class="fas fa-paper-plane"></i></button>
-      </div>
+    <!-- MAIN INTERFACE -->
+    <div id="app-container" class="flex h-full w-full max-w-[1600px] bg-white overflow-hidden relative opacity-0 transition-opacity duration-500">
+        
+        <!-- SIDEBAR -->
+        <aside id="sidebar" class="w-[350px] border-r border-gray-200 bg-white flex flex-col shrink-0">
+            <div class="h-[64px] bg-[#008069] flex items-center justify-between px-4 text-white shrink-0">
+                <div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-teal-900 flex items-center justify-center font-bold shadow-inner">GE</div></div>
+                <div class="flex gap-4 items-center opacity-70">
+                    <button id="logout-btn" title="Logout" class="hover:text-red-400 transition-colors"><i class="fa-solid fa-right-from-bracket"></i></button>
+                    <i class="fa-solid fa-message"></i><i class="fa-solid fa-ellipsis-vertical"></i>
+                </div>
+            </div>
+            <div id="chat-list" class="flex-1 overflow-y-auto">
+                <div class="flex items-center gap-3 p-3 bg-gray-100 border-b border-gray-100">
+                    <div id="sidebar-avatar" class="w-12 h-12 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold text-lg shrink-0">SU</div>
+                    <div class="flex-1 overflow-hidden">
+                        <h3 id="sidebar-room-name" class="font-semibold text-gray-800 text-sm">SUCCESS</h3>
+                        <p class="text-[12px] text-teal-600 font-medium animate-pulse italic truncate uppercase tracking-tighter">Parallel Audio & Paired Voices Active</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- CHAT PANEL -->
+        <main id="chat-main" class="flex-1 flex flex-col bg-[#efeae2] relative shadow-2xl">
+            <header class="bg-[#f0f2f5] h-[64px] flex items-center justify-between px-4 border-b border-gray-200 shrink-0 z-20">
+                <div class="flex items-center gap-3">
+                    <button onclick="document.body.classList.remove('mobile-chat-open')" class="md:hidden text-gray-500 p-2 -ml-2"><i class="fa-solid fa-arrow-left"></i></button>
+                    <div id="header-avatar" class="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold shadow-sm text-xs">SU</div>
+                    <div>
+                        <h2 id="room-header-name" class="font-semibold text-gray-800 text-[15px] leading-tight">SUCCESS</h2>
+                        <span id="user-display-meta" class="text-[9px] text-gray-400 font-bold uppercase tracking-tight">Connecting...</span>
+                    </div>
+                </div>
+                <div class="flex gap-5 items-center">
+                    <button onclick="toggleDeleteModal(true)" class="text-gray-400 hover:text-red-500 transition-colors p-2 text-lg"><i class="fa-solid fa-trash-can"></i></button>
+                    <button id="tts-toggle-btn" class="text-gray-400 hover:text-[#008069] transition-colors p-2 text-xl"><i id="tts-icon" class="fa-solid fa-volume-xmark"></i></button>
+                    <i class="fa-solid fa-ellipsis-vertical text-gray-500"></i>
+                </div>
+            </header>
+
+            <div id="msg-stream" class="flex-1 overflow-y-auto p-4 md:p-8 chat-bg flex flex-col gap-3 scroll-smooth"></div>
+
+            <div class="bg-[#f0f2f5] p-2 md:p-3 flex items-center gap-2 border-t border-gray-200 relative z-40">
+                <div class="flex w-full items-center gap-3 bg-white rounded-full px-4 py-2 shadow-sm">
+                    <i class="fa-regular fa-face-smile text-gray-400 text-xl cursor-pointer"></i>
+                    <input id="text-input" type="text" placeholder="Type a message" class="flex-1 outline-none text-[15px] bg-transparent">
+                    <button id="send-btn" class="hidden text-teal-600 p-1"><i class="fa-solid fa-paper-plane text-xl"></i></button>
+                    <button id="mic-btn" class="text-gray-500 p-1"><i class="fa-solid fa-microphone text-xl"></i></button>
+                </div>
+
+                <div id="voice-overlay" class="absolute inset-0 bg-[#f0f2f5] z-50 flex items-center px-4 hidden">
+                    <div class="w-2 h-2 rounded-full bg-red-500 animate-pulse mr-3"></div>
+                    <span id="timer" class="font-mono text-xs text-gray-500 w-10">00:00</span>
+                    <div class="flex-1 h-8 flex items-center overflow-hidden mx-2"><canvas id="viz" height="30" class="w-full"></canvas></div>
+                    <button id="cancel-voice" class="p-2 text-gray-400 hover:text-red-500"><i class="fa-solid fa-trash"></i></button>
+                    <button id="stop-voice" class="w-10 h-10 bg-[#00a884] text-white rounded-full flex items-center justify-center shadow-lg transform active:scale-90"><i class="fa-solid fa-check"></i></button>
+                </div>
+            </div>
+        </main>
     </div>
 
-    <!-- BOTTOM BAR -->
-    <div class="control-bar">
-      <button class="cbtn" id="btnMic"><i class="fas fa-microphone"></i><span>Mic</span></button>
-      <button class="cbtn" id="btnCamera"><i class="fas fa-video"></i><span>Video</span></button>
-      <div class="divider"></div>
-      <button class="cbtn" id="btnRaiseHand"><i class="fas fa-hand-paper"></i><span>Hand</span></button>
-      <button class="cbtn" id="btnChat"><i class="fas fa-comments"></i><span>Chat</span></button>
-      <button class="cbtn active" id="btnTranscribe"><i class="fas fa-closed-captioning"></i><span>Caption</span></button>
-      <div class="divider"></div>
-      <button class="cbtn danger" id="btnLeave"><i class="fas fa-phone-slash"></i><span>Leave</span></button>
-    </div>
-  </div>
-
-  <div class="toast" id="toast"></div>
-
-<script>
-/* =========================
-   FIREBASE
-========================= */
-const firebaseConfig = {
-  apiKey: "AIzaSyDVw2Xt1gf52xXgx4E5TMKf2007AyQwBfQ",
-  authDomain: "impactful-ring-469323-e5.firebaseapp.com",
-  databaseURL: "https://impactful-ring-469323-e5.europe-west1.firebasedatabase.app",
-  projectId: "impactful-ring-469323-e5",
-  storageBucket: "impactful-ring-469323-e5.firebasestorage.app",
-  messagingSenderId: "316842561818",
-  appId: "1:316842561818:web:8e580f90d4c766832c5ca3"
-};
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth(), db = firebase.database();
-const $ = id => document.getElementById(id);
-
-const loadingOverlay = $('loadingOverlay');
-const loadingTitle = $('loadingTitle');
-const loadingMessage = $('loadingMessage');
-const loadingActions = $('loadingActions');
-
-function showLoading(title, message, showActions=false){
-  if(title) loadingTitle.textContent = title;
-  if(message) loadingMessage.textContent = message;
-  loadingActions.classList.toggle('is-hidden', !showActions);
-  loadingOverlay.classList.remove('hidden');
-}
-function hideLoading(){ loadingOverlay.classList.add('hidden'); }
-function showToast(m, d=2400){
-  const t=$('toast'); t.textContent=m; t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'), d);
-}
-
-/* =========================
-   SAFE STRING HELPERS (keys/models not shown in UI)
-========================= */
-function _d64(parts){
-  try{
-    const joined = Array.isArray(parts) ? parts.join('') : String(parts||'');
-    return atob(joined);
-  }catch(e){ return ''; }
-}
-
-/* =========================
-   KEYS PROVIDED BY YOU (encoded; never rendered into DOM)
-========================= */
-const OPENAI_KEY_B64 = [
-  "c2stcHJvai1qclNNRzE1N1h1Q3dwSWx6SDl1Wk9YM18waG5zTHBkb05lS1I3",
-  "RFdOZlZDbVM2Y3dPdmRkN0hHVE9FWHdYaUlKdFN4X045OWZNUVQzQmxia0ZK",
-  "YlBTQUNFUXFWOVR5Y0dDMWI4Z3VCNURHSnFFWDItYmhSajRwVFJ3VmdwZ1Fq",
-  "M2I3V2YtTEUtTDl1dF9SRHAyUDI1S3NzNTRZSUE="
-];
-const CARTESIA_KEY_B64 = "c2tfY2FyX0FpUHg5ektWUGluNzljeGkzUjlrc2E=";
-
-/* Required request identifiers (encoded so you don’t “see” them in the frontend UI) */
-const OPENAI_STT_ID_B64 = "d2hpc3Blci0x";
-const CARTESIA_VOICE_DEFAULT = "5e94f5a6-6e44-4610-8530-5ff3f8d30ca8";
-const CARTESIA_MODEL_ID_B64 = "c29uaWMtMy1sYXRlc3Q=";
-
-/* =========================
-   STATE
-========================= */
-let currentUser=null, userProfile=null;
-let currentRoom=null;
-let roomRole="teacher"; // teacher|student
-
-let localStream=null;
-let prejoinStream=null;
-let prejoinMicEnabled=true;
-let prejoinCamEnabled=true;
-let selectedMicId=null, selectedCamId=null, selectedSpeakerId=null;
-
-let meetingStartTime=null, meetingTimerInterval=null;
-
-let presenceRef=null, participantsRef=null;
-
-let participants = new Map(); // id -> { uid, name, role, micEnabled, camEnabled, handRaised, micGranted, photoURL, lastSeen }
-let isTranscribing=false, sttRecorder=null;
-let sourceLanguage='en', userLanguage='en', sourceLanguageExplicit=false;
-
-let languagesList=[];
-let processedIds=new Set();
-
-let autoPlayTTS=false, ttsQueue=[], isPlayingTTS=false, currentAudio=null;
-
-/* mic lock for student */
-let micGranted = true; // teacher: true, student: controlled
-let handRaised=false;
-
-/* audio meters */
-let audioCtx=null, micAnalyser=null, micData=null;
-let outLevel = 0;
-
-/* =========================
-   BASIC UTILS
-========================= */
-function generateId(){
-  const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let id=''; for(let i=0;i<6;i++) id += c.charAt(Math.floor(Math.random()*c.length));
-  return id;
-}
-function formatTime(s){
-  const h=Math.floor(s/3600), m=Math.floor((s%3600)/60), sec=s%60;
-  if(h>0) return `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
-  return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
-}
-function escapeHtml(t){ const d=document.createElement('div'); d.textContent=t; return d.innerHTML; }
-
-/* =========================
-   AUTH FLOW
-========================= */
-if(location.protocol === 'file:'){
-  showLoading('Local file detected','Open via http://localhost or HTTPS hosting. Firebase auth won’t work on file://',true);
-}
-
-auth.onAuthStateChanged(async u=>{
-  if(!u){
-    showLoading('Not signed in','Redirecting to sign-in...');
-    setTimeout(()=>location.href='auth.html', 400);
-    return;
-  }
-  currentUser=u;
-  try{
-    await loadUserProfile(u);
-    await loadLanguages();
-    await enumerateDevices();
-    await showPrejoinScreen();
-    hideLoading();
-  }catch(e){
-    console.error(e);
-    showLoading('Startup error', 'Please refresh. ' + (e.message||''), true);
-  }
-});
-
-async function loadUserProfile(u){
-  const snap=await db.ref(`/users/${u.uid}`).once('value');
-  let p=snap.val();
-  if(!p || !p.personalId){
-    const pid=generateId();
-    p={
-      name:u.displayName || (u.email?u.email.split('@')[0]:'User'),
-      email:u.email || '',
-      personalId:pid,
-      language:'en',
-      role:'teacher',
-      createdAt:Date.now()
-    };
-    if(u.photoURL) p.photoURL=u.photoURL;
-    await db.ref(`/users/${u.uid}`).set(p);
-  }
-  userProfile=p;
-  userLanguage=p.language || 'en';
-  roomRole=p.role || 'teacher';
-}
-
-/* =========================
-   LANGUAGES
-========================= */
-async function loadLanguages(){
-  try{
-    const snap=await db.ref('/languages').once('value');
-    const d=snap.val();
-    languagesList=[];
-    if(d){
-      if(Array.isArray(d)) languagesList = d.map(l=>({code:l.code,name:l.name}));
-      else for(const [k,v] of Object.entries(d)) languagesList.push({code:v.code||k,name:v.name||v});
-    }
-  }catch(e){}
-  if(!languagesList.length){
-    languagesList = [
-      {code:'en',name:'English'},
-      {code:'nl',name:'Dutch'},
-      {code:'vls',name:'Dutch (Flemish)'},
-      {code:'fr',name:'French'},
-      {code:'de',name:'German'},
-      {code:'es',name:'Spanish'},
-      {code:'it',name:'Italian'},
-      {code:'pt',name:'Portuguese'},
-      {code:'tr',name:'Turkish'},
-      {code:'id',name:'Indonesian'},
-      {code:'tl',name:'Filipino/Tagalog'},
-      {code:'zh',name:'Chinese'},
-      {code:'ja',name:'Japanese'},
-      {code:'ko',name:'Korean'},
-      {code:'ar',name:'Arabic'},
-      {code:'ru',name:'Russian'},
-      {code:'hi',name:'Hindi'}
-    ];
-  }
-  populateLangSelects();
-}
-function populateLangSelects(){
-  const opts = languagesList.map(l=>`<option value="${l.code}">${l.name}</option>`).join('');
-  $('userLanguageSelect').innerHTML = opts;
-  $('sttLanguageSelect').innerHTML = `<option value="auto">Auto</option>` + opts;
-  $('centerSttLanguageSelect').innerHTML = `<option value="auto">Auto</option>` + opts;
-  $('translationLanguageSelect').innerHTML = opts;
-
-  $('userLanguageSelect').value = userLanguage || 'en';
-  $('translationLanguageSelect').value = userLanguage || 'en';
-
-  // default STT language: user profile or auto
-  sourceLanguage = (userProfile?.sttLanguage || userLanguage || 'en');
-  $('sttLanguageSelect').value = sourceLanguage || 'auto';
-  $('centerSttLanguageSelect').value = sourceLanguage || 'auto';
-}
-
-/* =========================
-   DEVICES + PREVIEW
-========================= */
-async function enumerateDevices(){
-  try{
-    const devs=await navigator.mediaDevices.enumerateDevices();
-    const mics=devs.filter(d=>d.kind==='audioinput');
-    const cams=devs.filter(d=>d.kind==='videoinput');
-    const spks=devs.filter(d=>d.kind==='audiooutput');
-
-    const micOpts = mics.map((d,i)=>`<option value="${d.deviceId}">${d.label || ('Microphone ' + (i+1))}</option>`).join('');
-    const camOpts = cams.map((d,i)=>`<option value="${d.deviceId}">${d.label || ('Camera ' + (i+1))}</option>`).join('');
-    const spkOpts = spks.map((d,i)=>`<option value="${d.deviceId}">${d.label || ('Speaker ' + (i+1))}</option>`).join('');
-
-    $('micSelect').innerHTML = micOpts || `<option value="">Default mic</option>`;
-    $('camSelect').innerHTML = camOpts || `<option value="">Default cam</option>`;
-    $('speakerSelect').innerHTML = spkOpts || `<option value="">Default output</option>`;
-
-    // center audio source dropdown mirrors mic
-    $('audioSourceSelect').innerHTML = $('micSelect').innerHTML;
-
-    // keep selection if previously set
-    if(selectedMicId) { $('micSelect').value = selectedMicId; $('audioSourceSelect').value = selectedMicId; }
-    if(selectedCamId) $('camSelect').value = selectedCamId;
-    if(selectedSpeakerId) $('speakerSelect').value = selectedSpeakerId;
-  }catch(e){
-    console.error('enumerateDevices', e);
-  }
-}
-
-async function startPreviewStream(){
-  try{
-    if(prejoinStream){
-      prejoinStream.getTracks().forEach(t=>t.stop());
-      prejoinStream=null;
-    }
-    const micId = $('micSelect').value;
-    const camId = $('camSelect').value;
-
-    prejoinStream = await navigator.mediaDevices.getUserMedia({
-      video: camId ? {deviceId:{exact:camId}} : true,
-      audio: micId ? {deviceId:{exact:micId}} : true
-    });
-
-    $('prejoinVideo').srcObject = prejoinStream;
-    $('prejoinVideoOff').classList.toggle('hidden', prejoinCamEnabled);
-
-    prejoinStream.getAudioTracks().forEach(t=>t.enabled = prejoinMicEnabled);
-    prejoinStream.getVideoTracks().forEach(t=>t.enabled = prejoinCamEnabled);
-
-  }catch(e){
-    console.error('preview', e);
-    $('prejoinVideoOff').classList.remove('hidden');
-  }
-}
-
-async function showPrejoinScreen(){
-  $('prejoinOverlay').classList.add('active');
-
-  const name = userProfile?.name || currentUser.displayName || 'User';
-  $('prejoinName').textContent = name;
-  $('prejoinEmail').textContent = userProfile?.email || currentUser.email || '';
-
-  $('displayNameInput').value = name;
-  $('prejoinAvatar').textContent = name.charAt(0).toUpperCase();
-
-  const photo = userProfile?.photoURL || currentUser.photoURL;
-  if(photo){
-    $('prejoinAvatar').innerHTML = `<img src="${photo}"/>`;
-  }
-
-  $('roleSelect').value = roomRole || 'teacher';
-  $('lockedHint').classList.toggle('show', $('roleSelect').value === 'student');
-
-  const qp = new URLSearchParams(location.search);
-  if(qp.get('room')) $('roomIdInput').value = String(qp.get('room')).toUpperCase();
-
-  await enumerateDevices();
-  await startPreviewStream();
-}
-
-/* prejoin live updates */
-$('displayNameInput').addEventListener('input', e=>{
-  const val = e.target.value.trim();
-  if(val){
-    $('prejoinName').textContent = val;
-    if(!userProfile?.photoURL && !currentUser?.photoURL){
-      $('prejoinAvatar').textContent = val.charAt(0).toUpperCase();
-    }
-  }
-});
-$('roleSelect').addEventListener('change', ()=>{
-  $('lockedHint').classList.toggle('show', $('roleSelect').value === 'student');
-});
-$('roomIdInput').addEventListener('input', e=>{
-  e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'');
-});
-
-$('micSelect').addEventListener('change', startPreviewStream);
-$('camSelect').addEventListener('change', startPreviewStream);
-
-$('prejoinMicToggle').addEventListener('click', ()=>{
-  prejoinMicEnabled = !prejoinMicEnabled;
-  $('prejoinMicToggle').classList.toggle('off', !prejoinMicEnabled);
-  $('prejoinMicToggle').innerHTML = `<i class="fas fa-microphone${prejoinMicEnabled?'':'-slash'}"></i>`;
-  if(prejoinStream) prejoinStream.getAudioTracks().forEach(t=>t.enabled = prejoinMicEnabled);
-});
-$('prejoinCamToggle').addEventListener('click', ()=>{
-  prejoinCamEnabled = !prejoinCamEnabled;
-  $('prejoinCamToggle').classList.toggle('off', !prejoinCamEnabled);
-  $('prejoinCamToggle').innerHTML = `<i class="fas fa-video${prejoinCamEnabled?'':'-slash'}"></i>`;
-  $('prejoinVideoOff').classList.toggle('hidden', prejoinCamEnabled);
-  if(prejoinStream) prejoinStream.getVideoTracks().forEach(t=>t.enabled = prejoinCamEnabled);
-});
-
-$('btnLogout').addEventListener('click', ()=>auth.signOut());
-
-/* =========================
-   JOIN ROOM
-========================= */
-$('btnJoinRoom').addEventListener('click', joinRoom);
-$('roomIdInput').addEventListener('keypress', e=>{ if(e.key==='Enter') joinRoom(); });
-
-async function joinRoom(){
-  const rid = $('roomIdInput').value.trim().toUpperCase();
-  if(!rid || rid.length < 3){ showToast('Enter a valid room ID'); return; }
-
-  const displayName = $('displayNameInput').value.trim();
-  if(!displayName){ showToast('Enter your display name'); return; }
-
-  roomRole = $('roleSelect').value || 'teacher';
-  userLanguage = $('userLanguageSelect').value || 'en';
-  sourceLanguage = $('sttLanguageSelect').value || 'auto';
-  sourceLanguageExplicit = true;
-
-  selectedMicId = $('micSelect').value || null;
-  selectedCamId = $('camSelect').value || null;
-  selectedSpeakerId = $('speakerSelect').value || null;
-
-  // persist user profile changes
-  await db.ref(`/users/${currentUser.uid}/name`).set(displayName);
-  await db.ref(`/users/${currentUser.uid}/language`).set(userLanguage);
-  await db.ref(`/users/${currentUser.uid}/role`).set(roomRole);
-  await db.ref(`/users/${currentUser.uid}/sttLanguage`).set(sourceLanguage);
-
-  userProfile.name = displayName;
-  userProfile.language = userLanguage;
-  userProfile.role = roomRole;
-  userProfile.sttLanguage = sourceLanguage;
-
-  // mirror dropdowns in center panel
-  $('centerSttLanguageSelect').value = sourceLanguage || 'auto';
-  $('translationLanguageSelect').value = userLanguage || 'en';
-
-  // open app
-  currentRoom = rid;
-  history.replaceState({},'', `${location.pathname}?room=${encodeURIComponent(rid)}`);
-
-  // stop preview
-  if(prejoinStream){ prejoinStream.getTracks().forEach(t=>t.stop()); prejoinStream=null; }
-
-  $('prejoinOverlay').classList.remove('active');
-  $('appContainer').classList.add('active');
-
-  // mic lock rules
-  micGranted = (roomRole === 'teacher'); // students: false until granted
-  $('btnMic').style.opacity = (roomRole === 'student' ? 0.6 : 1);
-  $('btnMic').style.pointerEvents = (roomRole === 'student' ? 'none' : 'auto');
-
-  await initRoom();
-}
-
-/* =========================
-   ROOM INIT
-========================= */
-async function initRoom(){
-  try{
-    $('displayRoomId').textContent = currentRoom;
-    meetingStartTime = Date.now();
-    if(meetingTimerInterval) clearInterval(meetingTimerInterval);
-    meetingTimerInterval = setInterval(updateMeetingTimer, 1000);
-
-    // getUserMedia for app
-    localStream = await navigator.mediaDevices.getUserMedia({
-      video: selectedCamId ? {deviceId:{exact:selectedCamId}} : true,
-      audio: {
-        deviceId: selectedMicId ? {exact:selectedMicId} : undefined,
-        echoCancellation:true,
-        noiseSuppression:true,
-        autoGainControl:true
-      }
-    });
-
-    // apply prejoin toggles, but enforce student mic lock
-    const micTrack = localStream.getAudioTracks()[0];
-    const camTrack = localStream.getVideoTracks()[0];
-
-    if(micTrack){
-      if(roomRole === 'student'){
-        micTrack.enabled = false; // locked until granted
-      }else{
-        micTrack.enabled = !!prejoinMicEnabled;
-      }
-    }
-    if(camTrack) camTrack.enabled = !!prejoinCamEnabled;
-
-    // stage video (teacher is pinned if teacher role; if student, show self until teacher appears)
-    attachStageFromLocal();
-
-    // audio meters
-    initAudioMeters();
-
-    // presence + listeners
-    await registerPresence();
-    listenToParticipants();
-    listenToTranscripts();
-    initChatListener();
-
-    // start transcription (only if mic granted)
-    if(roomRole === 'teacher'){
-      startTranscription();
-      $('capDot').classList.remove('red');
-      $('capState').textContent = 'Caption';
-    }else{
-      // student: transcription starts only once mic is granted
-      $('capDot').classList.add('red');
-      $('capState').textContent = 'Waiting';
-    }
-
-    showToast(`Joined ${currentRoom}`);
-  }catch(e){
-    console.error('initRoom', e);
-    showToast('Room setup failed: ' + (e.message||''));
-  }
-}
-
-function updateMeetingTimer(){
-  const s = Math.floor((Date.now() - meetingStartTime)/1000);
-  const t = formatTime(s);
-  $('timerDisplay').textContent = t;
-  $('stageTimer').textContent = t;
-}
-
-function attachStageFromLocal(){
-  const v = $('stageVideo');
-  v.srcObject = localStream;
-  v.muted = true;
-  v.play().catch(()=>{});
-  // stage identity
-  const name = userProfile?.name || (currentUser?.displayName||'User');
-  $('stageName').textContent = name;
-  $('stageSub').textContent = (roomRole === 'teacher') ? 'Teacher' : 'Student';
-  $('stageAvatar').textContent = name.charAt(0).toUpperCase();
-}
-
-/* =========================
-   AUDIO METERS
-========================= */
-function initAudioMeters(){
-  try{
-    if(audioCtx) return;
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const src = audioCtx.createMediaStreamSource(localStream);
-    micAnalyser = audioCtx.createAnalyser();
-    micAnalyser.fftSize = 256;
-    micData = new Uint8Array(micAnalyser.frequencyBinCount);
-    src.connect(micAnalyser);
-
-    function tick(){
-      try{
-        if(micAnalyser){
-          micAnalyser.getByteFrequencyData(micData);
-          let sum = 0;
-          for(let i=0;i<micData.length;i++) sum += micData[i];
-          const avg = sum / micData.length;
-          const pct = Math.min(100, Math.max(0, (avg / 140) * 100));
-          $('micMeter').style.width = pct.toFixed(0) + '%';
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, push, set, onChildAdded, onValue, remove, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { createClient, LiveTranscriptionEvents } from 'https://cdn.jsdelivr.net/npm/@deepgram/sdk@3/+esm';
+
+        // --- KEYS & CONFIG ---
+        const CARTESIA_KEY = "sk_car_yWEX9Mp2LwKju8FXyosGhj";
+        const DEEPGRAM_KEY = '11ee938d032ce7c36c6fa82338274be5e4ada847';
+        const DEFAULT_VOICES = { "Male": "aa3fdf22-9f5e-4238-8016-31f515ded9a3", "Female": "cbaf8084-f009-4838-a096-07ee2e6612b1" };
+        
+        // PAIRED VOICES FROM JSON
+        const VOICE_MAP = {
+            "en": { "Male": "5ee9feff-1265-424a-9d7f-8e4d431a12c7", "Female": "e07c00bc-4134-4eae-9ea4-1a55fb45746b" },
+            "hi": { "Male": "7e8cb11d-37af-476b-ab8f-25da99b18644", "Female": "faf0731e-dfb9-4cfc-8119-259a79b27e12" },
+            "es": { "Male": "15d0c2e2-8d29-44c3-be23-d585d5f154a1", "Female": "5c5ad5e7-1020-476b-8b91-fdcbe9cc313c" },
+            "de": { "Male": "b7187e84-fe22-4344-ba4a-bc013fcb533e", "Female": "38aabb6a-f52b-4fb0-a3d1-988518f4dc06" },
+            "ar": { "Male": "f1cdfb4a-bf7d-4e83-916e-8f0802278315", "Female": "002622d8-19d0-4567-a16a-f99c7397c062" },
+            "ko": { "Male": "af6beeea-d732-40b6-8292-73af0035b740", "Female": "304fdbd8-65e6-40d6-ab78-f9d18b9efdf9" },
+            "fr": { "Male": "0418348a-0ca2-4e90-9986-800fb8b3bbc0", "Female": "a8a1eb38-5f15-4c1d-8722-7ac0f329727d" },
+            "ja": { "Male": "e8a863c6-22c7-4671-86ca-91cacffc038d", "Female": "2b568345-1d48-4047-b25f-7baccf842eb0" },
+            "pt": { "Male": "6a360542-a117-4ed5-9e09-e8bf9b05eabb", "Female": "d4b44b9a-82bc-4b65-b456-763fce4c52f9" },
+            "ta": { "Female": "25d2c432-139c-4035-bfd6-9baaabcdd006" },
+            "te": { "Female": "07bc462a-c644-49f1-baf7-82d5599131be" },
+            "nl": { "Male": "aa3fdf22-9f5e-4238-8016-31f515ded9a3", "Female": "cbaf8084-f009-4838-a096-07ee2e6612b1" }
+        };
+
+        const firebaseConfig = { apiKey: "AIzaSyC93B2GgE3HzaWl5gW_mRroobQybaZNFJs", authDomain: "macx-5feca.firebaseapp.com", databaseURL: "https://macx-5feca-default-rtdb.asia-southeast1.firebasedatabase.app", projectId: "macx-5feca" };
+        const app = initializeApp(firebaseConfig); const db = getDatabase(app);
+
+        const EMOTIONS = { "neutral": "😐", "angry": "😠", "excited": "🤩", "content": "😊", "sad": "😢", "scared": "😨", "happy": "😀", "apologetic": "🙇", "curious": "🤔", "amazed": "😲", "triumphant": "🏆" };
+        const fullLangList = ["Abkhaz","Acehnese","Acholi","Afar","Afrikaans","Albanian","Alur","Amharic","Arabic","Armenian","Assamese","Avar","Awadhi","Aymara","Azerbaijani","Balinese","Baluchi","Bambara","Baoulé","Bashkir","Basque","Batak Karo","Batak Simalungun","Batak Toba","Belarusian","Bemba","Bengali","Betawi","Bhojpuri","Bikol","Bosnian","Breton","Bulgarian","Buryat","Cantonese","Catalan","Cebuano","Chamorro","Chechen","Chichewa","Chinese (Simplified)","Chinese (Traditional)","Chuukese","Chuvash","Corsican","Crimean Tatar (Cyrillic)","Crimean Tatar (Latin)","Croatian","Czech","Danish","Dari","Dhivehi","Dinka","Dogri","Dombe","Dutch","Dyula","Dzongkha","English","Esperanto","Estonian","Ewe","Faroese","Fijian","Filipino","Finnish","Fon","French","French (Canada)","Frisian","Friulian","Fulani","Ga","Galician","Georgian","German","Greek","Guarani","Gujarati","Haitian Creole","Hakha Chin","Hausa","Hawaiian","Hebrew","Hiligaynon","Hindi","Hmong","Hungarian","Hunsrik","Iban","Icelandic","Igbo","Ilocano","Indonesian","Inuktut (Latin)","Inuktut (Syllabics)","Irish","Italian","Jamaican Patois","Japanese","Javanese","Jingpo","Kalaallisut","Kannada","Kanuri","Kapampangan","Kazakh","Khasi","Khmer","Kiga","Kikongo","Kinyarwanda","Kituba","Kokborok","Komi","Konkani","Korean","Krio","Kurdish (Kurmanji)","Kurdish (Sorani)","Kyrgyz","Lao","Latgalian","Latin","Latvian","Ligurian","Limburgish","Lingala","Lithuanian","Lombard","Luganda","Luo","Luxembourgish","Macedonian","Madurese","Maithili","Makassar","Malagasy","Malay","Malay (Jawi)","Malayalam","Maltese","Mam","Manx","Maori","Marathi","Marshallese","Marwadi","Mauritian Creole","Meadow Mari","Meiteilon (Manipuri)","Minang","Mizo","Mongolian","Myanmar (Burmese)","Nahuatl (Eastern Huasteca)","Ndau","Ndebele (South)","Nepalbhasa (Newari)","Nepali","NKo","Norwegian","Nuer","Occitan","Odia (Oriya)","Oromo","Ossetian","Pangasinan","Papiamento","Pashto","Persian","Polish","Portuguese (Brazil)","Portuguese (Portugal)","Punjabi (Gurmukhi)","Punjabi (Shahmukhi)","Quechua","Qʼeqchiʼ","Romani","Romanian","Rundi","Russian","Sami (North)","Samoan","Sango","Sanskrit","Santali (Latin)","Santali (Ol Chiki)","Scots Gaelic","Sepedi","Serbian","Sesotho","Seychellois Creole","Shan","Shona","Sicilian","Silesian","Sindhi","Sinhala","Slovak","Slovenian","Somali","Spanish","Sundanese","Susu","Swahili","Swati","Swedish","Tahitian","Tajik","Tamazight","Tamazight (Tifinagh)","Tamil","Tatar","Telugu","Tetum","Thai","Tibetan","Tigrinya","Tiv","Tok Pisin","Tongan","Tshiluba","Tsonga","Tswana","Tulu","Tumbuka","Turkish","Turkmen","Tuvan","Twi","Udmurt","Ukrainian","Urdu","Uyghur","Uzbek","Venda","Venetian","Vietnamese","Waray","Welsh","Wolof","Xhosa","Yakut","Yiddish","Yoruba","Yucatec Maya","Zapotec","Zulu"];
+
+        // --- SESSION STATE ---
+        let myUserId = `user-${Math.floor(Math.random()*99999)}`;
+        let userData = { name: '', room: 'SUCCESS', gender: 'Male', language: 'nl' };
+        let isRec = false, mediaRec, dgSocket, aCtx, aFr, tStart, tInt, activeSegmentRef = null;
+        let ttsEnabled = false, joinTimestamp = null;
+        const audioQueue = [];
+        let isAudioPlaying = false;
+
+        const ui = {
+            modal: document.getElementById('gateway-modal'), delModal: document.getElementById('delete-modal'), app: document.getElementById('app-container'), langSelect: document.getElementById('user-lang'), msgWin: document.getElementById('msg-stream'), txtIn: document.getElementById('text-input'), sendBtn: document.getElementById('send-btn'), micBtn: document.getElementById('mic-btn'), voiceOver: document.getElementById('voice-overlay'), timer: document.getElementById('timer'), viz: document.getElementById('viz'), ttsBtn: document.getElementById('tts-toggle-btn'), ttsIcon: document.getElementById('tts-icon'), logout: document.getElementById('logout-btn')
+        };
+
+        // --- AUDIO QUEUE SYSTEM (SEQUENTIAL) ---
+        async function processAudioQueue() {
+            if (isAudioPlaying || audioQueue.length === 0) return;
+            isAudioPlaying = true;
+            const item = audioQueue.shift();
+            try {
+                const pair = VOICE_MAP[item.lang] || DEFAULT_VOICES;
+                const voiceId = pair[item.gender] || DEFAULT_VOICES[item.gender];
+                
+                const response = await fetch("https://api.cartesia.ai/tts/bytes", {
+                    method: "POST",
+                    headers: { "Cartesia-Version": "2025-04-16", "X-API-Key": CARTESIA_KEY, "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        "model_id": "sonic-3-latest",
+                        "transcript": `<emotion value="${item.emotion || 'neutral'}" />${item.text}`,
+                        "voice": { "mode": "id", "id": voiceId },
+                        "output_format": { "container": "wav", "encoding": "pcm_f32le", "sample_rate": 44100 },
+                        "speed": "normal",
+                        "generation_config": { "speed": 1, "volume": 1, "emotion": item.emotion || "neutral" }
+                    })
+                });
+
+                if (response.ok) {
+                    const audio = new Audio(URL.createObjectURL(await response.blob()));
+                    audio.onended = () => { isAudioPlaying = false; processAudioQueue(); };
+                    await audio.play();
+                } else { isAudioPlaying = false; processAudioQueue(); }
+            } catch (e) { isAudioPlaying = false; processAudioQueue(); }
         }
-        // output level is approximate (from last TTS playback)
-        const outPct = Math.min(100, Math.max(0, outLevel));
-        $('outMeter').style.width = outPct.toFixed(0) + '%';
-      }catch(e){}
-      requestAnimationFrame(tick);
-    }
-    tick();
-  }catch(e){
-    console.warn('meters', e);
-  }
-}
 
-/* =========================
-   PRESENCE (raise-hand + mic grant)
-========================= */
-async function registerPresence(){
-  presenceRef = db.ref(`/rooms/${currentRoom}/participants/${currentUser.uid}`);
-  const userData = {
-    uid: currentUser.uid,
-    name: userProfile?.name || currentUser.displayName || 'User',
-    email: userProfile?.email || currentUser.email || '',
-    photoURL: userProfile?.photoURL || currentUser.photoURL || '',
-    language: userLanguage,
-    role: roomRole,
-    sttLanguage: sourceLanguage,
-    micEnabled: !!(localStream?.getAudioTracks()[0]?.enabled),
-    camEnabled: !!(localStream?.getVideoTracks()[0]?.enabled),
-    micGranted: (roomRole === 'teacher') ? true : false,
-    handRaised: false,
-    joinedAt: firebase.database.ServerValue.TIMESTAMP,
-    lastSeen: firebase.database.ServerValue.TIMESTAMP
-  };
-  await presenceRef.set(userData);
-  presenceRef.onDisconnect().remove();
-  setInterval(()=>{
-    if(presenceRef) presenceRef.child('lastSeen').set(firebase.database.ServerValue.TIMESTAMP);
-  }, 30000);
-}
-
-function listenToParticipants(){
-  participantsRef = db.ref(`/rooms/${currentRoom}/participants`);
-
-  participantsRef.on('value', snap=>{
-    const data = snap.val() || {};
-    participants.clear();
-    for(const [uid, p] of Object.entries(data)){
-      participants.set(uid, p);
-    }
-    renderParticipants();
-    // teacher stage: pick teacher if exists
-    pickTeacherToStage();
-    // student: watch micGranted changes for me
-    const me = participants.get(currentUser.uid);
-    if(me && roomRole === 'student'){
-      const granted = !!me.micGranted;
-      if(granted !== micGranted){
-        micGranted = granted;
-        onStudentGrantChange(granted);
-      }
-    }
-  });
-}
-
-function pickTeacherToStage(){
-  // if there is any teacher in room, prioritize that on stage for students
-  let teacher = null;
-  for(const p of participants.values()){
-    if(p.role === 'teacher'){ teacher = p; break; }
-  }
-  if(roomRole === 'student' && teacher){
-    // if teacher is me, already local stream
-    $('stageName').textContent = teacher.name || 'Teacher';
-    $('stageSub').textContent = 'Teacher';
-    $('stageAvatar').textContent = (teacher.name||'T').charAt(0).toUpperCase();
-  }
-  $('participantCount').textContent = String(participants.size);
-  $('participantsMiniCount').textContent = String(participants.size);
-}
-
-function onStudentGrantChange(granted){
-  const micTrack = localStream?.getAudioTracks()[0];
-  if(!micTrack) return;
-  if(granted){
-    micTrack.enabled = true;
-    $('btnMic').style.opacity = 1;
-    $('btnMic').style.pointerEvents = 'auto';
-    $('capDot').classList.remove('red');
-    $('capState').textContent = 'Caption';
-    startTranscription();
-    showToast('Mic granted');
-  }else{
-    micTrack.enabled = false;
-    $('btnMic').style.opacity = 0.6;
-    $('btnMic').style.pointerEvents = 'none';
-    stopTranscription();
-    $('capDot').classList.add('red');
-    $('capState').textContent = 'Waiting';
-    showToast('Mic revoked');
-  }
-  // reflect in presence
-  presenceRef?.update({ micEnabled: micTrack.enabled });
-}
-
-/* =========================
-   PARTICIPANTS UI (right panel + queue)
-========================= */
-function renderParticipants(){
-  // list
-  const list = $('studentsList');
-  list.innerHTML = '';
-
-  // build hand queue
-  const queue = [];
-  for(const p of participants.values()){
-    if(p.handRaised) queue.push(p);
-  }
-  renderHandQueue(queue);
-
-  // sort: teacher first, then alphabetical
-  const arr = Array.from(participants.values()).sort((a,b)=>{
-    if(a.role !== b.role) return (a.role === 'teacher' ? -1 : 1);
-    return String(a.name||'').localeCompare(String(b.name||''));
-  });
-
-  for(const p of arr){
-    const isMe = p.uid === currentUser.uid;
-    const ini = (p.name||'U').charAt(0).toUpperCase();
-    const avatar = p.photoURL ? `<img src="${p.photoURL}"/>` : ini;
-
-    const muted = (p.role === 'student') ? (!p.micGranted || !p.micEnabled) : (!p.micEnabled);
-    const tagClass = muted ? 'tag muted' : 'tag';
-    const tagDot = muted ? '<span class="dot"></span>' : '<span class="dot"></span>';
-
-    const row = document.createElement('div');
-    row.className = 'person';
-    row.innerHTML = `
-      <div class="p-ava">${avatar}</div>
-      <div class="p-meta">
-        <div class="p-name">${isMe ? 'You' : escapeHtml(p.name || 'User')}</div>
-        <div class="p-sub">
-          <span class="${tagClass}">${tagDot}${p.role === 'teacher' ? 'Teacher' : 'Student'}</span>
-          ${p.handRaised ? `<span class="tag" style="border-color:rgba(234,179,8,.25);background:rgba(234,179,8,.10)"><span class="dot" style="background:var(--yellow)"></span>Hand</span>` : ''}
-          ${p.role === 'student' ? (p.micGranted ? `<span class="tag" style="border-color:rgba(34,197,94,.25);background:rgba(34,197,94,.10)"><span class="dot" style="background:var(--green)"></span>Granted</span>` : `<span class="tag muted"><span class="dot"></span>Muted</span>`) : ''}
-        </div>
-      </div>
-      <div class="p-actions" data-uid="${p.uid}">
-        <button class="p-btn ${p.handRaised?'hand':''}" title="Raise hand status"><i class="fas fa-hand-paper ${p.handRaised?'hand-anim':''}"></i></button>
-        ${(roomRole==='teacher' && p.role==='student' && !isMe) ? `
-          <button class="p-btn grant" title="Grant mic"><i class="fas fa-microphone"></i></button>
-          <button class="p-btn revoke" title="Revoke mic"><i class="fas fa-microphone-slash"></i></button>
-        ` : `
-          <button class="p-btn" title="Pin"><i class="fas fa-thumbtack"></i></button>
-        `}
-      </div>
-    `;
-
-    // actions
-    const actions = row.querySelector('.p-actions');
-    if(actions){
-      const [handBtn, grantBtn, revokeBtn] = actions.querySelectorAll('button');
-      if(grantBtn){
-        grantBtn.addEventListener('click', ()=> teacherSetGrant(p.uid, true));
-      }
-      if(revokeBtn){
-        revokeBtn.addEventListener('click', ()=> teacherSetGrant(p.uid, false));
-      }
-    }
-
-    list.appendChild(row);
-  }
-}
-
-function renderHandQueue(queue){
-  const empty = $('handQueueEmpty');
-  const list = $('handQueueList');
-
-  if(!queue.length){
-    empty.classList.remove('is-hidden');
-    list.classList.add('is-hidden');
-    list.innerHTML = '';
-    return;
-  }
-  empty.classList.add('is-hidden');
-  list.classList.remove('is-hidden');
-  list.innerHTML = '';
-
-  queue.sort((a,b)=>(a.lastSeen||0)-(b.lastSeen||0));
-  for(const p of queue){
-    const item = document.createElement('div');
-    item.className = 'person';
-    item.style.marginBottom = '10px';
-    const ini = (p.name||'U').charAt(0).toUpperCase();
-    const avatar = p.photoURL ? `<img src="${p.photoURL}"/>` : ini;
-    item.innerHTML = `
-      <div class="p-ava">${avatar}</div>
-      <div class="p-meta">
-        <div class="p-name">${escapeHtml(p.name||'User')}</div>
-        <div class="p-sub"><span class="tag" style="border-color:rgba(234,179,8,.25);background:rgba(234,179,8,.10)"><span class="dot" style="background:var(--yellow)"></span>Raised</span></div>
-      </div>
-      ${(roomRole==='teacher' && p.role==='student') ? `
-        <div class="p-actions">
-          <button class="p-btn grant" title="Grant mic"><i class="fas fa-microphone"></i></button>
-        </div>
-      ` : ``}
-    `;
-    const gb = item.querySelector('.grant');
-    if(gb) gb.addEventListener('click', ()=> teacherSetGrant(p.uid, true));
-    list.appendChild(item);
-  }
-}
-
-async function teacherSetGrant(uid, granted){
-  if(roomRole !== 'teacher') return;
-  if(!uid) return;
-  try{
-    await db.ref(`/rooms/${currentRoom}/participants/${uid}/micGranted`).set(!!granted);
-    await db.ref(`/rooms/${currentRoom}/participants/${uid}/handRaised`).set(false);
-    showToast(granted ? 'Mic granted' : 'Mic revoked');
-  }catch(e){
-    console.error(e);
-    showToast('Action failed');
-  }
-}
-
-/* =========================
-   CENTER DROPDOWNS (in-app)
-========================= */
-$('audioSourceSelect').addEventListener('change', async ()=>{
-  const newMic = $('audioSourceSelect').value;
-  selectedMicId = newMic;
-  $('micSelect').value = newMic;
-
-  // rebuild localStream audio track only (simple approach: reacquire media)
-  try{
-    if(!localStream) return;
-    const oldTracks = localStream.getAudioTracks();
-    oldTracks.forEach(t=>{ try{t.stop()}catch{} });
-
-    const newAudio = await navigator.mediaDevices.getUserMedia({
-      audio: { deviceId: newMic ? {exact:newMic} : undefined, echoCancellation:true, noiseSuppression:true, autoGainControl:true },
-      video: false
-    });
-    const newTrack = newAudio.getAudioTracks()[0];
-    if(newTrack){
-      // enforce student lock
-      if(roomRole === 'student' && !micGranted) newTrack.enabled = false;
-      localStream.addTrack(newTrack);
-      // remove any old (already stopped) references
-      oldTracks.forEach(t=>{ try{localStream.removeTrack(t)}catch{} });
-      presenceRef?.update({ micEnabled: !!newTrack.enabled });
-      if(isTranscribing){ stopTranscription(); if(roomRole==='teacher' || micGranted) startTranscription(); }
-      showToast('Audio source updated');
-    }
-  }catch(e){
-    console.error(e);
-    showToast('Failed to switch mic');
-  }
-});
-
-$('centerSttLanguageSelect').addEventListener('change', async ()=>{
-  sourceLanguage = $('centerSttLanguageSelect').value || 'auto';
-  $('sttLanguageSelect').value = sourceLanguage;
-  await db.ref(`/users/${currentUser.uid}/sttLanguage`).set(sourceLanguage);
-  sourceLanguageExplicit = true;
-  showToast('STT language updated');
-});
-
-$('translationLanguageSelect').addEventListener('change', async ()=>{
-  userLanguage = $('translationLanguageSelect').value || 'en';
-  $('userLanguageSelect').value = userLanguage;
-  await db.ref(`/users/${currentUser.uid}/language`).set(userLanguage);
-  showToast('Translation language updated');
-});
-
-/* =========================
-   TRANSCRIPT VIEW TOGGLE
-========================= */
-$('viewUnifiedBtn').addEventListener('click', ()=>{
-  $('viewUnifiedBtn').classList.add('active');
-  $('viewSplitBtn').classList.remove('active');
-  $('transcriptUnified').classList.remove('hidden');
-  $('transcriptSplit').classList.remove('active');
-});
-$('viewSplitBtn').addEventListener('click', ()=>{
-  $('viewSplitBtn').classList.add('active');
-  $('viewUnifiedBtn').classList.remove('active');
-  $('transcriptUnified').classList.add('hidden');
-  $('transcriptSplit').classList.add('active');
-});
-
-/* clear transcripts */
-$('btnClearTranscripts').addEventListener('click', ()=>{
-  processedIds.clear();
-  $('transcriptUnified').innerHTML = `<div class="empty" id="transcriptEmpty"><i class="fas fa-language"></i><p>Transcripts appear here as participants speak</p></div>`;
-  $('originalColumn').innerHTML = '';
-  $('translationColumn').innerHTML = '';
-  showToast('Cleared');
-});
-
-/* =========================
-   TRANSCRIPTION (OpenAI audio transcription)
-   - no model names shown in UI
-========================= */
-function startTranscription(){
-  if(isTranscribing) return;
-
-  const key = _d64(OPENAI_KEY_B64);
-  if(!key){
-    showToast('STT key missing');
-    return;
-  }
-
-  const streamToRecord = localStream;
-  if(!streamToRecord || !streamToRecord.active || streamToRecord.getAudioTracks().length === 0){
-    showToast('Microphone not available');
-    return;
-  }
-
-  isTranscribing = true;
-  $('btnTranscribe').classList.add('active');
-  $('capDot').classList.remove('red');
-  $('capState').textContent = 'Caption';
-
-  const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-    ? 'audio/webm;codecs=opus'
-    : 'audio/webm';
-
-  try{
-    sttRecorder = new MediaRecorder(streamToRecord, { mimeType });
-    const chunks = [];
-
-    sttRecorder.ondataavailable = e=>{ if(e.data && e.data.size) chunks.push(e.data); };
-    sttRecorder.onstop = async ()=>{
-      try{
-        const blob = new Blob(chunks, { type: mimeType });
-        if(blob.size > 1200){
-          await sendToStt(blob, key);
+        // --- UTILS ---
+        function cleanTranscript(t) { return t.replace(/\b(uhm|um|ah|huh|er|eh|hm|uh)\b/gi, "").replace(/\s\s+/g, ' ').trim(); }
+        async function translate(text, from, to) {
+            if (from === to) return text;
+            try {
+                const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=${from}&tl=${to}&dt=t&q=${encodeURI(text)}`);
+                const d = await res.json(); return d[0][0][0];
+            } catch (e) { return text; }
         }
-      }catch(e){}
-      if(isTranscribing) startTranscription(); // loop
-    };
 
-    sttRecorder.start();
-    setTimeout(()=>{ try{ if(sttRecorder && sttRecorder.state==='recording') sttRecorder.stop(); }catch{} }, 6500);
-
-  }catch(e){
-    console.error('MediaRecorder', e);
-    showToast('Transcription failed to start');
-    isTranscribing=false;
-    $('btnTranscribe').classList.remove('active');
-    $('capDot').classList.add('red');
-    $('capState').textContent = 'Waiting';
-  }
-}
-
-function stopTranscription(){
-  isTranscribing = false;
-  $('btnTranscribe').classList.remove('active');
-  if(sttRecorder && sttRecorder.state !== 'inactive'){
-    try{ sttRecorder.stop(); }catch{}
-  }
-  sttRecorder = null;
-}
-
-async function sendToStt(blob, key){
-  const formData = new FormData();
-  formData.append('file', blob, 'audio.webm');
-
-  // request identifiers are decoded at runtime and never displayed
-  formData.append('model', _d64(OPENAI_STT_ID_B64));
-
-  // allow auto
-  const lang = (sourceLanguage && sourceLanguage !== 'auto') ? sourceLanguage : '';
-  if(lang) formData.append('language', lang);
-
-  try{
-    const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-      method:'POST',
-      headers:{ 'Authorization': `Bearer ${key}` },
-      body: formData
-    });
-    if(!res.ok) throw new Error(await res.text());
-    const data = await res.json();
-    if(data && data.text){
-      await sendTranscript(data.text);
-    }
-  }catch(e){
-    console.error('stt', e);
-    // don’t kill the room; just warn and stop
-    showToast('Transcription error');
-    stopTranscription();
-    $('capDot').classList.add('red');
-    $('capState').textContent = 'Waiting';
-  }
-}
-
-/* =========================
-   TRANSCRIPTS STORAGE + RENDER
-========================= */
-async function sendTranscript(txt){
-  const t = String(txt||'').trim();
-  if(!t) return;
-
-  // respect student mic lock: students can only send if granted
-  if(roomRole === 'student' && !micGranted) return;
-
-  const eid = Date.now().toString() + '_' + Math.floor(Math.random()*9999).toString();
-  const payload = {
-    id: eid,
-    userId: currentUser.uid,
-    userName: userProfile?.name || 'User',
-    originalText: t,
-    originalLang: sourceLanguage || 'auto',
-    targetLang: userLanguage || 'en',
-    timestamp: Date.now()
-  };
-  await db.ref(`/transcripts/${currentRoom}/${eid}`).set(payload);
-}
-
-function listenToTranscripts(){
-  db.ref(`/transcripts/${currentRoom}`)
-    .orderByChild('timestamp')
-    .limitToLast(150)
-    .on('child_added', async snap=>{
-      const e = snap.val();
-      if(!e || !e.id) return;
-
-      // translate for viewer
-      let tr = e.originalText;
-      try{
-        tr = await googleTranslate(e.originalText, 'auto', userLanguage || 'en');
-      }catch(_){}
-
-      addTranscriptEntry({
-        id: e.id,
-        userId: e.userId,
-        userName: e.userName,
-        originalText: e.originalText,
-        translation: tr,
-        timestamp: e.timestamp
-      });
-    });
-}
-
-function addTranscriptEntry(e){
-  const isNew = !processedIds.has(e.id);
-  processedIds.add(e.id);
-
-  // remove empty
-  const empty = $('transcriptEmpty');
-  if(empty) empty.remove();
-
-  const isSelf = e.userId === currentUser.uid;
-  const ini = (e.userName||'U').charAt(0).toUpperCase();
-  const time = new Date(e.timestamp).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
-
-  // unified card
-  const el = document.createElement('div');
-  el.className = 'entry';
-  el.dataset.id = e.id;
-  el.innerHTML = `
-    <div class="entry-top">
-      <div class="entry-ava">${ini}</div>
-      <div class="entry-name">${isSelf ? 'You' : escapeHtml(e.userName||'User')}</div>
-      <div class="entry-time">${time}</div>
-    </div>
-    <div class="bubble muted">${escapeHtml(e.originalText||'')}</div>
-    <div style="height:8px"></div>
-    <div class="bubble accent">${escapeHtml(e.translation||'')}</div>
-    <div class="entry-actions">
-      <button class="play" data-text="${encodeURIComponent(e.translation||'')}"><i class="fas fa-volume-up"></i> Play</button>
-    </div>
-  `;
-  $('transcriptUnified').appendChild(el);
-  $('transcriptUnified').scrollTop = $('transcriptUnified').scrollHeight;
-
-  // split original
-  const ol = document.createElement('div');
-  ol.className = 'line';
-  ol.innerHTML = `
-    <div class="line-top">
-      <div class="line-ava">${ini}</div>
-      <div class="line-name">${isSelf ? 'You' : escapeHtml(e.userName||'User')}</div>
-      <div class="line-time">${time}</div>
-    </div>
-    <div class="line-text">${escapeHtml(e.originalText||'')}</div>
-  `;
-  $('originalColumn').appendChild(ol);
-  $('originalColumn').scrollTop = $('originalColumn').scrollHeight;
-
-  // split translation
-  const tl = document.createElement('div');
-  tl.className = 'line';
-  tl.innerHTML = `
-    <div class="line-top">
-      <div class="line-ava">${ini}</div>
-      <div class="line-name">${isSelf ? 'You' : escapeHtml(e.userName||'User')}</div>
-      <div class="line-time">${time}</div>
-    </div>
-    <div class="line-text">${escapeHtml(e.translation||'')}</div>
-  `;
-  $('translationColumn').appendChild(tl);
-  $('translationColumn').scrollTop = $('translationColumn').scrollHeight;
-
-  // auto TTS
-  if(autoPlayTTS && isNew){
-    queueTTS({ id:e.id, text:e.translation||'', lang:userLanguage||'en' });
-  }
-}
-
-/* =========================
-   TRANSLATE (Google)
-========================= */
-async function googleTranslate(t, sl='auto', tl='en'){
-  const q = encodeURIComponent(String(t||''));
-  const r = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=${tl}&dt=t&q=${q}`);
-  if(!r.ok) throw new Error('translate');
-  const d = await r.json();
-  return (d?.[0]||[]).filter(x=>Array.isArray(x)&&typeof x[0]==='string').map(x=>x[0]).join('').trim();
-}
-
-/* =========================
-   TTS (Cartesia)
-========================= */
-function toggleAutoTTS(){
-  autoPlayTTS = !autoPlayTTS;
-  $('btnAutoTTS').classList.toggle('active', autoPlayTTS);
-  if(!autoPlayTTS){
-    ttsQueue = [];
-    updateQueueBadge();
-  }
-  showToast(autoPlayTTS ? 'Auto audio enabled' : 'Auto audio disabled');
-}
-$('btnAutoTTS').addEventListener('click', toggleAutoTTS);
-
-function queueTTS(item){
-  if(!item || !item.text) return;
-  ttsQueue.push(item);
-  updateQueueBadge();
-  processTTSQueue();
-}
-function updateQueueBadge(){
-  const b = $('ttsQueueBadge');
-  b.textContent = String(ttsQueue.length);
-  b.classList.toggle('is-hidden', ttsQueue.length === 0);
-}
-
-async function processTTSQueue(){
-  if(isPlayingTTS || ttsQueue.length === 0) return;
-  isPlayingTTS = true;
-
-  const item = ttsQueue.shift();
-  updateQueueBadge();
-
-  const btn = document.querySelector(`.entry[data-id="${item.id}"] .play`);
-  if(btn) btn.classList.add('playing');
-
-  try{
-    await playTTSAudio(item.text, item.lang);
-  }catch(e){
-    console.error('tts', e);
-  }
-
-  if(btn) btn.classList.remove('playing');
-  isPlayingTTS = false;
-  if(ttsQueue.length) processTTSQueue();
-}
-
-async function playTTSAudio(text, lang){
-  // update output meter while playing
-  outLevel = 90;
-
-  const key = _d64(CARTESIA_KEY_B64);
-  if(!key) throw new Error('tts key');
-
-  const modelId = _d64(CARTESIA_MODEL_ID_B64);
-  const voiceId = CARTESIA_VOICE_DEFAULT;
-
-  const r = await fetch('https://api.cartesia.ai/tts/bytes', {
-    method:'POST',
-    headers:{
-      'Cartesia-Version':'2025-04-16',
-      'X-API-Key': key,
-      'Content-Type':'application/json'
-    },
-    body: JSON.stringify({
-      transcript: String(text||''),
-      model_id: modelId,
-      voice: { mode:'id', id: voiceId },
-      output_format: { container:'wav', encoding:'pcm_f32le', sample_rate: 44100 }
-    })
-  });
-
-  if(!r.ok) throw new Error('tts fail');
-  const blob = await r.blob();
-  const url = URL.createObjectURL(blob);
-
-  if(currentAudio){ try{ currentAudio.pause(); }catch{} currentAudio=null; }
-  const a = new Audio(url);
-  currentAudio = a;
-
-  // route to selected output if supported
-  if(selectedSpeakerId && a.setSinkId){
-    try{ await a.setSinkId(selectedSpeakerId); }catch(_){}
-  }
-
-  return await new Promise((resolve,reject)=>{
-    a.onended = ()=>{
-      outLevel = 0;
-      currentAudio = null;
-      URL.revokeObjectURL(url);
-      resolve();
-    };
-    a.onerror = (e)=>{
-      outLevel = 0;
-      currentAudio = null;
-      URL.revokeObjectURL(url);
-      reject(e);
-    };
-    a.play().catch(reject);
-  });
-}
-
-document.addEventListener('click', e=>{
-  const b = e.target.closest('.play');
-  if(!b) return;
-  const t = decodeURIComponent(b.dataset.text||'');
-  b.classList.add('playing');
-  playTTSAudio(t, userLanguage||'en')
-    .finally(()=>b.classList.remove('playing'));
-});
-
-/* =========================
-   CHAT
-========================= */
-$('btnOpenChat').addEventListener('click', ()=> $('chatPanel').classList.toggle('open'));
-$('btnChat').addEventListener('click', ()=> $('chatPanel').classList.toggle('open'));
-$('btnCloseChat').addEventListener('click', ()=> $('chatPanel').classList.remove('open'));
-
-$('btnSendChat').addEventListener('click', sendChatMessage);
-$('chatInput').addEventListener('keypress', e=>{
-  if(e.key==='Enter'){ e.preventDefault(); sendChatMessage(); }
-});
-
-function sendChatMessage(){
-  const input=$('chatInput');
-  const msg=input.value.trim();
-  if(!msg || !currentRoom) return;
-  db.ref(`/chats/${currentRoom}`).push({
-    userId: currentUser.uid,
-    name: userProfile?.name || currentUser.displayName || 'User',
-    message: msg,
-    timestamp: Date.now()
-  });
-  input.value='';
-}
-
-function initChatListener(){
-  if(!currentRoom) return;
-  db.ref(`/chats/${currentRoom}`)
-    .orderByChild('timestamp')
-    .limitToLast(120)
-    .on('child_added', snap=>{
-      const m = snap.val();
-      if(!m) return;
-      const empty=$('chatEmpty'); if(empty) empty.remove();
-
-      const div=document.createElement('div');
-      const isSelf = m.userId === currentUser.uid;
-      div.className = 'msg ' + (isSelf ? 'sent' : 'received');
-      const time = new Date(m.timestamp).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
-      div.innerHTML = isSelf
-        ? `${escapeHtml(m.message)}`
-        : `<div class="msg-top"><span>${escapeHtml(m.name||'User')}</span><span>•</span><span>${time}</span></div>${escapeHtml(m.message)}`;
-
-      $('chatMessages').appendChild(div);
-      $('chatMessages').scrollTop = $('chatMessages').scrollHeight;
-    });
-}
-
-/* =========================
-   RAISE HAND
-========================= */
-$('btnRaiseHand').addEventListener('click', toggleRaiseHand);
-
-function toggleRaiseHand(){
-  handRaised = !handRaised;
-  $('btnRaiseHand').classList.toggle('hand-raised', handRaised);
-  if(currentRoom && currentUser){
-    db.ref(`/rooms/${currentRoom}/participants/${currentUser.uid}/handRaised`).set(handRaised);
-    db.ref(`/rooms/${currentRoom}/participants/${currentUser.uid}/lastSeen`).set(firebase.database.ServerValue.TIMESTAMP);
-  }
-  showToast(handRaised ? 'Hand raised' : 'Hand lowered');
-}
-
-/* =========================
-   MIC / CAM CONTROLS
-========================= */
-$('btnMic').addEventListener('click', ()=>{
-  if(!localStream) return;
-
-  // student lock protection
-  if(roomRole === 'student' && !micGranted){
-    showToast('Mic is locked');
-    return;
-  }
-
-  const t = localStream.getAudioTracks()[0];
-  if(!t) return;
-
-  t.enabled = !t.enabled;
-  $('btnMic').classList.toggle('muted', !t.enabled);
-  $('btnMic').querySelector('i').className = `fas fa-microphone${t.enabled?'':'-slash'}`;
-
-  presenceRef?.update({ micEnabled: t.enabled, lastSeen: firebase.database.ServerValue.TIMESTAMP });
-
-  // transcription only when mic enabled
-  if(t.enabled){
-    if(!isTranscribing) startTranscription();
-  }else{
-    if(isTranscribing) stopTranscription();
-  }
-});
-
-$('btnCamera').addEventListener('click', ()=>{
-  if(!localStream) return;
-  const t = localStream.getVideoTracks()[0];
-  if(!t) return;
-
-  t.enabled = !t.enabled;
-  $('btnCamera').classList.toggle('muted', !t.enabled);
-  $('btnCamera').querySelector('i').className = `fas fa-video${t.enabled?'':'-slash'}`;
-
-  presenceRef?.update({ camEnabled: t.enabled, lastSeen: firebase.database.ServerValue.TIMESTAMP });
-});
-
-/* caption button toggles transcription */
-$('btnTranscribe').addEventListener('click', ()=>{
-  if(roomRole === 'student' && !micGranted){
-    showToast('Waiting for teacher');
-    return;
-  }
-  if(isTranscribing) stopTranscription();
-  else startTranscription();
-});
-
-/* =========================
-   PIP / PIN
-========================= */
-$('btnPiP').addEventListener('click', async ()=>{
-  const v = $('stageVideo');
-  if(!document.pictureInPictureEnabled || !v) { showToast('PiP not available'); return; }
-  try{ await v.requestPictureInPicture(); }catch(e){ showToast('PiP failed'); }
-});
-
-/* =========================
-   OPEN PREJOIN AGAIN (device change)
-========================= */
-$('btnOpenPrejoin').addEventListener('click', async ()=>{
-  // show prejoin overlay but keep room joined; just for quick device adjustment
-  $('prejoinOverlay').classList.add('active');
-  await enumerateDevices();
-  await startPreviewStream();
-  showToast('Adjust settings, then Join to re-enter');
-});
-
-/* =========================
-   LEAVE ROOM
-========================= */
-$('btnLeave').addEventListener('click', leaveRoom);
-$('btnLeaveHeader').addEventListener('click', leaveRoom);
-
-function leaveRoom(){
-  try{
-    stopTranscription();
-    if(localStream) localStream.getTracks().forEach(t=>t.stop());
-    if(prejoinStream) prejoinStream.getTracks().forEach(t=>t.stop());
-    if(currentAudio){ try{currentAudio.pause()}catch{} currentAudio=null; }
-    if(meetingTimerInterval) clearInterval(meetingTimerInterval);
-
-    if(presenceRef){ try{presenceRef.remove()}catch{} presenceRef=null; }
-    if(participantsRef){ try{participantsRef.off()}catch{} participantsRef=null; }
-
-    if(currentRoom){
-      db.ref(`/transcripts/${currentRoom}`).off();
-      db.ref(`/chats/${currentRoom}`).off();
-    }
-
-    participants.clear();
-    processedIds.clear();
-    ttsQueue = [];
-    isPlayingTTS = false;
-    autoPlayTTS = false;
-    handRaised = false;
-
-    $('appContainer').classList.remove('active');
-    $('chatPanel').classList.remove('open');
-    $('transcriptUnified').innerHTML = `<div class="empty" id="transcriptEmpty"><i class="fas fa-language"></i><p>Transcripts appear here as participants speak</p></div>`;
-    $('originalColumn').innerHTML = '';
-    $('translationColumn').innerHTML = '';
-    $('studentsList').innerHTML = '';
-    $('handQueueList').innerHTML = '';
-    $('handQueueEmpty').classList.remove('is-hidden');
-
-    currentRoom = null;
-    localStream = null;
-    history.replaceState({},'', location.pathname);
-
-    // go back to prejoin
-    showPrejoinScreen();
-  }catch(e){
-    console.error(e);
-    location.href='index.html';
-  }
-}
-
-/* =========================
-   FINAL: Hook up prejoin to also close overlay
-========================= */
-document.addEventListener('keydown', (e)=>{
-  if(e.key === 'Escape'){
-    $('chatPanel').classList.remove('open');
-  }
-});
-</script>
+        function getEmotion(text) {
+            const l = text.toLowerCase();
+            if (l.includes("sorry")) return "apologetic";
+            if (l.includes("wow")) return "amazed";
+            if (l.includes("angry")) return "angry";
+            if (l.includes("happy")) return "happy";
+            if (l.includes("why")) return "curious";
+            return "neutral";
+        }
+
+        // --- FIREBASE OPS ---
+        function pushMsg(raw, isFinal = true) {
+            const text = cleanTranscript(raw); if (!text) return;
+            const emotion = isFinal ? getEmotion(text) : "neutral";
+            const path = isFinal ? `chats/${userData.room}/messages` : `chats/${userData.room}/drafts`;
+            const tRef = isFinal ? push(ref(db, path)) : (activeSegmentRef || push(ref(db, path)));
+            if (!isFinal) activeSegmentRef = tRef;
+            set(tRef, { text, senderId: myUserId, senderName: userData.name, gender: userData.gender, lang: userData.language, emotion, emoji: EMOTIONS[emotion] || '😐', timestamp: Date.now() });
+            if (isFinal && activeSegmentRef) { remove(activeSegmentRef); activeSegmentRef = null; }
+        }
+
+        function bindFirebase(room) {
+            ui.msgWin.innerHTML = '';
+            onChildAdded(ref(db, `chats/${room}/messages`), async (snap) => {
+                const msg = snap.val();
+                if (msg.senderId !== myUserId && msg.timestamp >= joinTimestamp) {
+                    msg.translated = await translate(msg.text, msg.lang, userData.language);
+                    audioQueue.push({ text: msg.translated, gender: msg.gender, emotion: msg.emotion, lang: userData.language });
+                    if(ttsEnabled) processAudioQueue();
+                }
+                renderBubble(msg);
+            });
+            onValue(ref(db, `chats/${room}/drafts`), (snap) => {
+                document.querySelectorAll('.is-live').forEach(el => el.remove());
+                if (snap.val()) Object.entries(snap.val()).forEach(([key, val]) => renderBubble(val, true));
+            });
+        }
+
+        function renderBubble(msg, isLive = false) {
+            const isMe = msg.senderId === myUserId;
+            const div = document.createElement('div');
+            div.className = `flex ${isMe ? 'justify-end' : 'justify-start'} ${isLive ? 'is-live opacity-50' : ''}`;
+            const content = (!isMe && msg.translated) ? msg.translated : msg.text;
+            div.innerHTML = `<div class="${isMe ? 'bg-[#d9fdd3] rounded-tr-none' : 'bg-white rounded-tl-none'} p-2 rounded-lg bubble-shadow max-w-[85%] flex items-end gap-2"><div class="flex-1"><p class="text-[14.5px] text-[#111b21] leading-tight pr-1 pb-1">${content}</p><div class="flex items-center gap-1"><span class="text-[8px] text-gray-400 font-bold uppercase tracking-tighter">${msg.senderName} • ${msg.gender} • ${msg.lang}</span></div></div><div class="emotion-emoji shrink-0">${msg.emoji || '😐'}</div></div>`;
+            ui.msgWin.appendChild(div); ui.msgWin.scrollTop = ui.msgWin.scrollHeight;
+        }
+
+        // --- ROBUST DEEPGRAM (FIXED PARAMS) ---
+        async function startVoice() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                isRec = true; ui.voiceOver.classList.remove('hidden'); setupViz(stream);
+                tStart = Date.now();
+                tInt = setInterval(() => { const s = Math.floor((Date.now() - tStart)/1000); ui.timer.innerText = `${Math.floor(s/60).toString().padStart(2,'0')}:${(s%60).toString().padStart(2,'0')}`; }, 1000);
+
+                const dgClient = createClient(DEEPGRAM_KEY);
+                // Fixed: endpointing, punctuate, and smart_format to prevent missed words
+                dgSocket = dgClient.listen.live({ 
+                    model: "nova-3", language: userData.language, smart_format: true, interim_results: true, 
+                    endpointing: 1000, punctuate: true, vad_events: true 
+                });
+
+                dgSocket.on(LiveTranscriptionEvents.Open, () => {
+                    mediaRec = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+                    mediaRec.ondataavailable = (e) => { if (e.data.size > 0 && dgSocket.getReadyState() === 1) dgSocket.send(e.data); };
+                    mediaRec.start(250); // 250ms chunks for real-time fidelity
+                });
+
+                dgSocket.on(LiveTranscriptionEvents.Transcript, (d) => {
+                    const txt = d.channel.alternatives[0].transcript;
+                    if (txt.trim()) pushMsg(txt, d.is_final);
+                });
+            } catch (e) { stopVoice(false); }
+        }
+
+        // --- CORE CONNECT ---
+        function connect(isAuto = false) {
+            if (!isAuto) {
+                const n = document.getElementById('user-display-name').value.trim();
+                const r = document.getElementById('room-code').value.trim().toUpperCase();
+                if(!n) return alert("Enter Display Name");
+                userData.name = n.substring(0, 8); userData.room = r || 'SUCCESS';
+                userData.gender = document.getElementById('user-gender').value;
+                userData.language = ui.langSelect.value;
+                joinTimestamp = Date.now();
+                localStorage.setItem('orbit_session', JSON.stringify({ ...userData, joinTime: joinTimestamp }));
+            }
+            ui.modal.classList.add('hidden'); ui.app.classList.remove('opacity-0');
+            document.getElementById('room-header-name').innerText = userData.room;
+            document.getElementById('sidebar-room-name').innerText = userData.room;
+            document.getElementById('user-display-meta').innerText = `${userData.name} • ${userData.gender} • ${userData.language.toUpperCase()}`;
+            document.body.classList.add('mobile-chat-open');
+            bindFirebase(userData.room);
+        }
+
+        // --- APP INIT ---
+        fullLangList.forEach(l => {
+            const opt = document.createElement('option');
+            const map = { "Dutch": "nl", "Tagalog": "tl", "English": "en", "Spanish": "es", "French": "fr", "German": "de", "Arabic": "ar", "Korean": "ko", "Japanese": "ja", "Portuguese": "pt", "Tamil": "ta", "Telugu": "te", "Hindi": "hi" };
+            opt.value = map[l] || "en"; opt.text = l; if(l === "Dutch") opt.selected = true; ui.langSelect.add(opt);
+        });
+
+        window.toggleDeleteModal = (show) => ui.delModal.classList.toggle('hidden', !show);
+        document.getElementById('confirm-delete-btn').onclick = () => { remove(ref(db, `chats/${userData.room}`)); toggleDeleteModal(false); ui.msgWin.innerHTML = ''; };
+        ui.logout.onclick = () => { localStorage.removeItem('orbit_session'); location.reload(); };
+        document.getElementById('btn-connect').onclick = () => connect(false);
+        ui.ttsBtn.onclick = () => { ttsEnabled = !ttsEnabled; ui.ttsIcon.className = ttsEnabled ? "fa-solid fa-volume-high text-[#008069]" : "fa-solid fa-volume-xmark text-gray-400"; if(ttsEnabled) processAudioQueue(); };
+        ui.txtIn.oninput = () => { const v = ui.txtIn.value.trim(); ui.sendBtn.classList.toggle('hidden', v===""); ui.micBtn.classList.toggle('hidden', v!==""); };
+        ui.sendBtn.onclick = () => { if(ui.txtIn.value.trim()){ pushMsg(ui.txtIn.value.trim(), true); ui.txtIn.value=''; ui.txtIn.oninput(); } };
+        ui.micBtn.onclick = startVoice;
+        document.getElementById('stop-voice').onclick = () => { isRec = false; mediaRec?.stop(); dgSocket?.finish(); clearInterval(tInt); ui.voiceOver.classList.add('hidden'); ui.timer.innerText = "00:00"; };
+        document.getElementById('cancel-voice').onclick = () => { isRec = false; mediaRec?.stop(); dgSocket?.finish(); clearInterval(tInt); ui.voiceOver.classList.add('hidden'); if(activeSegmentRef) remove(activeSegmentRef); activeSegmentRef = null; };
+
+        function setupViz(s) {
+            const vCtx = new AudioContext(); const aAn = vCtx.createAnalyser(); aAn.fftSize = 64; vCtx.createMediaStreamSource(s).connect(aAn);
+            const b = new Uint8Array(aAn.frequencyBinCount), ctx = ui.viz.getContext('2d'); ui.viz.width = ui.viz.parentElement.offsetWidth;
+            const dr = () => { if(!isRec) return vCtx.close(); requestAnimationFrame(dr); aAn.getByteFrequencyData(b); ctx.clearRect(0,0,ui.viz.width,ui.viz.height);
+                let x = 0; for(let i=0; i<b.length; i++) { const h = (b[i]/255)*30; ctx.fillStyle='#00a884'; ctx.beginPath(); ctx.roundRect(x,(30-h)/2,2,h,10); ctx.fill(); x += 5; }
+            }; dr();
+        }
+
+        const saved = localStorage.getItem('orbit_session');
+        if(saved) { const d = JSON.parse(saved); userData = d; joinTimestamp = d.joinTime; connect(true); }
+    </script>
 </body>
 </html>
